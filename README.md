@@ -88,9 +88,6 @@ The raw inputs are the CDC NHIS Sample Adult **public-use CSV files** (`samadult
 committed to the repo. Verification runs the documented analyses directly against these files;
 the compiled `.okf/` bundle is the only thing derived from them.
 
-Agent path: `pip install -e ".[agent]"`, drop `ANTHROPIC_API_KEY` in `.env`, then `nhis query`
-runs the Strands agent. Deploy notes in [deploy/README.md](deploy/README.md).
-
 ## What the verification catches
 
 Four classes of clean-but-wrong number, each caught by *running* the analysis — three distinct
@@ -124,11 +121,26 @@ verifier, new variables.
 
 ## Grounded vs ungrounded
 
-Asked *"how does survey weighting change diabetes prevalence?"*, an ungrounded frontier model
-invented an unweighted 11.2%, fabricated race/age subgroup tables, and a false claim about this
-project's internals. The grounded agent returned the verified **9.8% [DIBEV_A]** and **declined**
-the weighted-vs-unweighted comparison — because it is not a verified concept in the bundle.
-Grounding makes the agent less willing to guess. Full transcript: [docs/SAMPLE.md](docs/SAMPLE.md).
+Real responses from the deployed agent (`agentcore invoke` on Bedrock AgentCore) — it cites
+verified ids, attaches the design-based CI, and refuses when the bundle has no answer:
+
+```text
+$ agentcore invoke '{"question": "what is the prevalence of asthma among US adults?"}'
+I cannot answer this question from the verified NHIS bundle. The search did not return any
+verified concepts related to asthma prevalence among US adults.
+
+$ agentcore invoke '{"question": "how does survey weighting change diabetes prevalence?"}'
+The survey-weighted prevalence of diagnosed diabetes among U.S. adults in 2023 is 9.8%
+(95% CI 9.39-10.20) [DIBEV_A], with a design effect (DEFF) of 1.41 ... However, I cannot
+provide the specific difference between weighted and unweighted prevalence from the verified
+bundle, as those comparative figures are not returned by the search.
+```
+
+Asked that same weighting question, an ungrounded frontier model invented an unweighted 11.2%,
+fabricated race/age subgroup tables, and a false claim about this project's internals. The
+grounded agent declined the unweighted number because it is not a verified concept in the
+bundle — grounding makes it less willing to guess. Full transcript, including the verified
+insulin answer: [docs/SAMPLE.md](docs/SAMPLE.md).
 
 ## The pieces
 
