@@ -1,0 +1,23 @@
+id: TREND_diabetes__naive
+canonical: diabetes_ever
+years: [2018, 2023]
+title: "Diagnosed diabetes trend (NAIVE single-name join — seeded defect)"
+seeded_defect: true
+claim:
+  statistic: "Weighted prevalence of diagnosed diabetes among U.S. adults, 2018 vs 2023"
+  method:
+    # WRONG: joins both years by one variable name. DIBEV_A does not exist in 2018 — it was
+    # renamed from DIBEV1 in the 2019 redesign — so this join silently drops 2018.
+    single_variable: DIBEV_A
+    weighted: true
+  values_pct: {2018: 9.80, 2023: 9.80}
+  tolerance_pct: 0.3
+links: [DIBEV_A]
+prose: |
+  Diagnosed diabetes prevalence held flat at about 9.8% from 2018 to 2023, computed from the
+  `DIBEV_A` variable across both survey years.
+
+  (This concept is intentionally seeded. Its markdown is clean and its link resolves, and a
+  "flat trend" reads as plausible. It is still wrong: `DIBEV_A` does not exist in the 2018
+  file — it was renamed from `DIBEV1` in the 2019 redesign — so a single-name join drops 2018
+  entirely. A link-checker passes this; executing the per-year computation does not.)

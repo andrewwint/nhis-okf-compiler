@@ -141,6 +141,34 @@ def get(name: str) -> Variable:
     return REGISTRY[name]
 
 
+# --- Cross-year resolution (the 2019 redesign rename) --------------------------------
+#
+# The 2019 NHIS redesign renamed and recoded variables. A longitudinal trend that joins
+# years by a single variable name silently breaks, because the name does not exist in the
+# other year. This map is the ground truth the trend verifier uses to resolve each year
+# correctly — and to detect a naive single-name join.
+#
+# canonical -> {year: (variable, weight, valid_codes, affirmative_codes)}
+#
+# Borderline/prediabetes handling: 2018 DIBEV1 carries borderline as code 3 *within* the
+# variable; 2023 splits prediabetes into a separate item (PREDIB_A) and DIBEV_A is 1/2. For
+# a comparable "diagnosed diabetes" denominator, 2018 counts borderline (3) as not-diagnosed
+# (denominator 1/2/3, numerator 1), matching how 2023 treats prediabetics as DIBEV_A == 2.
+CROSS_YEAR: dict[str, dict[int, tuple[str, str, tuple[int, ...], tuple[int, ...]]]] = {
+    "diabetes_ever": {
+        2018: ("DIBEV1", "WTFA_SA", (1, 2, 3), (1,)),
+        2023: ("DIBEV_A", "WTFA_A", (1, 2), (1,)),
+    }
+}
+
+# Per-year Sample Adult public-use CSV filenames (under data/).
+YEAR_FILES: dict[int, str] = {2018: "samadult.csv", 2023: "adult23.csv"}
+YEAR_CSV_ZIP: dict[int, str] = {
+    2018: "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/NHIS/2018/samadultcsv.zip",
+    2023: "https://ftp.cdc.gov/pub/Health_Statistics/NCHS/Datasets/NHIS/2023/adult23csv.zip",
+}
+
+
 # The *analytical* universe for the headline insulin claim. Distinct from the question
 # universe in the registry: the claim is about people with diagnosed diabetes, so the
 # denominator is DIBEV_A == 1 — not the whole sample, and not the prediabetes-inclusive

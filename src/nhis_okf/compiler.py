@@ -16,15 +16,16 @@ passive RAG over the raw codebook.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 import yaml
 
-from . import registry
+from . import registry, trends as trends_mod
 from .concepts import Concept, load_all
+from .trends import TrendConcept, TrendVerifyResult
 from .verify import VerifyResult, verify_all, PASS, FAIL, DESCRIPTIVE
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -41,11 +42,15 @@ class CompileReport:
     written: list[str]
     quarantined: list[str]
     results: list[VerifyResult]
+    trend_written: list[str] = field(default_factory=list)
+    trend_quarantined: list[str] = field(default_factory=list)
+    trend_results: list[TrendVerifyResult] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
         # A clean compile catches every seeded defect and writes every sound concept.
-        for r in self.results:
+        all_results = list(self.results) + list(self.trend_results)
+        for r in all_results:
             if r.seeded_defect and r.verdict != FAIL:
                 return False
             if not r.seeded_defect and r.verdict == FAIL:
@@ -144,7 +149,59 @@ def render_concept(concept: Concept, r: VerifyResult, ts: str) -> str:
     return _frontmatter(concept, r, ts) + "\n\n" + _body(concept, r)
 
 
-def _render_index(written: list[Concept], ts: str) -> str:
+def _render_trend(concept: TrendConcept, r: TrendVerifyResult, ts: str) -> str:
+    years_csv = ", ".join(str(y) for y in concept.years)
+    vals = "{" + ", ".join(f"{y}: {r.correct.get(y)}" for y in concept.years) + "}"
+    fm = [
+        "---",
+        "type: metric",
+        f'title: "{concept.title}"',
+        f'description: "{concept.statistic}"',
+        f'resource: "{RESOURCE}"',
+        f"tags: [nhis, diabetes, trend, {years_csv}]",
+        f'timestamp: "{ts}"',
+        "# extension keys (OKF consumers tolerate unknown fields)",
+        f"id: {concept.id}",
+        f"canonical: {concept.canonical}",
+        f"years: [{years_csv}]",
+        "method: per-year-variable (rename-aware across the 2019 redesign)",
+        f"values_pct: {vals}",
+        "verification:",
+        f"  verdict: {r.verdict}",
+        "  method: execution-grounded (cross-year)",
+        f"  correct_pct: {vals}",
+        f"  verified_at: {ts}",
+        f"links: {_yaml_list(concept.links)}",
+        "---",
+    ]
+    body = [
+        f"# {concept.title}",
+        "",
+        _wikilinks_to_markdown(concept.prose),
+        "",
+        "## Verified trend",
+        "",
+    ]
+    body += [f"- {y}: {r.correct.get(y)}%" for y in concept.years]
+    body += [
+        "",
+        f"- Verification: each year executed against its own file with its own weight; "
+        f"verdict **{r.verdict}**.",
+        "",
+    ]
+    if concept.links:
+        body.append("## Related")
+        body += [f"- [{l}](./{l}.md)" for l in concept.links]
+        body.append("")
+    return "\n".join(fm) + "\n\n" + "\n".join(body)
+
+
+def _trend_years_available(trend_list: list[TrendConcept]) -> bool:
+    needed = {y for c in trend_list for y in c.years}
+    return all(trends_mod.year_csv(y).exists() for y in needed)
+
+
+def _render_index(written: list[Concept], ts: str, trend_ids: list[str] | None = None) -> str:
     lines = [
         "---",
         "type: index",
@@ -162,11 +219,21 @@ def _render_index(written: list[Concept], ts: str) -> str:
     ]
     for c in written:
         lines.append(f"- [variables/{c.id}](variables/{c.id}.md) — {_description(c)}")
+    if trend_ids:
+        lines.append("")
+        lines.append("## Cross-year trends")
+        for tid in trend_ids:
+            lines.append(f"- [variables/{tid}](variables/{tid}.md)")
     lines.append("")
     return "\n".join(lines)
 
 
-def _write_log(results: list[VerifyResult], ts: str, log_path: Path = LOG_PATH) -> None:
+def _write_log(
+    results: list[VerifyResult],
+    ts: str,
+    log_path: Path = LOG_PATH,
+    trend_results: list[TrendVerifyResult] | None = None,
+) -> None:
     lines = [
         "# OKF audit log",
         "",
@@ -194,6 +261,21 @@ def _write_log(results: list[VerifyResult], ts: str, log_path: Path = LOG_PATH) 
         lines.append(
             f"| {r.concept_id} | {r.verdict} | {claimed} | {correct} | {delta} | {note} |"
         )
+    if trend_results:
+        lines += [
+            "",
+            "## Cross-year trends (2019 redesign-rename catch)",
+            "",
+            "| trend | verdict | note |",
+            "| --- | --- | --- |",
+        ]
+        for r in trend_results:
+            note = ""
+            if r.verdict == FAIL:
+                note = "; ".join(r.diagnosis)
+                if r.caught:
+                    note = "QUARANTINED — lint passed, execution caught it: " + note
+            lines.append(f"| {r.concept_id} | {r.verdict} | {note} |")
     lines.append("")
     log_path.write_text("\n".join(lines))
 
@@ -229,9 +311,34 @@ def compile_bundle(
         written.append(concept.id)
         written_concepts.append(concept)
 
-    (bundle_root / "index.md").write_text(_render_index(written_concepts, ts))
-    _write_log(results, ts, log_path)
-    return CompileReport(written=written, quarantined=quarantined, results=results)
+    # Cross-year trends — only when every required year's file is present (so a 2023-only
+    # checkout or CI without the 2018 fetch still compiles cleanly).
+    trend_written, trend_quarantined, trend_results = [], [], []
+    trend_list = trends_mod.load_trends()
+    if trend_list and _trend_years_available(trend_list):
+        trend_results = trends_mod.verify_all_trends(trend_list)
+        t_by_id = {c.id: c for c in trend_list}
+        for r in trend_results:
+            if r.verdict == FAIL:
+                trend_quarantined.append(r.concept_id)
+                continue
+            (out_dir / f"{r.concept_id}.md").write_text(
+                _render_trend(t_by_id[r.concept_id], r, ts)
+            )
+            trend_written.append(r.concept_id)
+
+    (bundle_root / "index.md").write_text(
+        _render_index(written_concepts, ts, trend_ids=trend_written)
+    )
+    _write_log(results, ts, log_path, trend_results=trend_results)
+    return CompileReport(
+        written=written,
+        quarantined=quarantined,
+        results=results,
+        trend_written=trend_written,
+        trend_quarantined=trend_quarantined,
+        trend_results=trend_results,
+    )
 
 
 # --- OKF v0.1 conformance --------------------------------------------------------------

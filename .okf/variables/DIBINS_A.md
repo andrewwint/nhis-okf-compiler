@@ -4,7 +4,7 @@ title: "Currently takes insulin (among adults with diagnosed diabetes)"
 description: "Weighted % currently taking insulin among U.S. adults with diagnosed diabetes, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, DIBINS_A, prevalence]
-timestamp: "2026-06-29T04:12:24Z"
+timestamp: "2026-06-29T04:44:31Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: DIBINS_A
 variable: DIBINS_A
@@ -21,7 +21,7 @@ verification:
   claimed_pct: 31.96
   delta_pp: 0.0
   detail: "31.96% (weighted by WTFA_A; universe: DIBEV_A == 1; n=3291 unweighted)"
-  verified_at: 2026-06-29T04:12:24Z
+  verified_at: 2026-06-29T04:44:31Z
 ---
 
 # Currently takes insulin (among adults with diagnosed diabetes)
