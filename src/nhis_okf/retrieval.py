@@ -53,7 +53,7 @@ def load_bundle(variables_dir: Path = VARIABLES_DIR) -> list[OkfConcept]:
         out.append(
             OkfConcept(
                 id=fm.get("id", p.stem),
-                label=fm.get("label", p.stem),
+                label=fm.get("title") or fm.get("label") or p.stem,
                 text=body,
                 frontmatter=fm,
                 path=p,
