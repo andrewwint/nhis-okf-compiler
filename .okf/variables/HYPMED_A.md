@@ -4,7 +4,7 @@ title: "Takes blood-pressure medication (among adults with hypertension)"
 description: "Weighted % currently taking blood-pressure medication among U.S. adults with diagnosed hypertension, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, HYPMED_A, prevalence]
-timestamp: "2026-06-29T11:45:35Z"
+timestamp: "2026-06-29T12:00:45Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: HYPMED_A
 variable: HYPMED_A
@@ -20,8 +20,12 @@ verification:
   correct_pct: 79.62
   claimed_pct: 79.62
   delta_pp: 0.0
-  detail: "79.62% (weighted by WTFA_A; universe: HYPEV_A == 1; n=11083 unweighted)"
-  verified_at: 2026-06-29T11:45:35Z
+  detail: "79.62% (95% CI 78.63-80.61; design-based SE 0.50pp, DEFF 1.74)"
+  ci_95: [78.63, 80.61]
+  se_pp: 0.50
+  deff: 1.74
+  variance_method: taylor-linearization (design-based)
+  verified_at: 2026-06-29T12:00:45Z
 ---
 
 # Takes blood-pressure medication (among adults with hypertension)
@@ -35,7 +39,8 @@ the denominator is HYPEV_A == 1, survey-weighted — not the whole sample.
 
 **Weighted % currently taking blood-pressure medication among U.S. adults with diagnosed hypertension, 2023: 79.62%**
 
-- Basis: 79.62% (weighted by WTFA_A; universe: HYPEV_A == 1; n=11083 unweighted)
+- 95% CI: [78.63, 80.61] (design-based, Taylor linearization; SE 0.50pp; DEFF 1.74)
+- Basis: 79.62% (95% CI 78.63-80.61; design-based SE 0.50pp, DEFF 1.74)
 - Verification: executed against NHIS 2023 Sample Adult public-use file (adult23.csv); verdict **PASS**.
 
 ## Related

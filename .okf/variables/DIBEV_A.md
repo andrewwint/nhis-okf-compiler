@@ -4,7 +4,7 @@ title: "Ever told you had diabetes"
 description: "Weighted prevalence of diagnosed diabetes among U.S. adults, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, DIBEV_A, prevalence]
-timestamp: "2026-06-29T11:45:35Z"
+timestamp: "2026-06-29T12:00:45Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: DIBEV_A
 variable: DIBEV_A
@@ -19,8 +19,12 @@ verification:
   correct_pct: 9.8
   claimed_pct: 9.8
   delta_pp: 0.0
-  detail: "9.80% (weighted by WTFA_A; universe: all sample adults; n=29489 unweighted)"
-  verified_at: 2026-06-29T11:45:35Z
+  detail: "9.80% (95% CI 9.39-10.20; design-based SE 0.21pp, DEFF 1.41)"
+  ci_95: [9.39, 10.20]
+  se_pp: 0.21
+  deff: 1.41
+  variance_method: taylor-linearization (design-based)
+  verified_at: 2026-06-29T12:00:45Z
 ---
 
 # Ever told you had diabetes
@@ -36,7 +40,8 @@ does not estimate the U.S. adult population.
 
 **Weighted prevalence of diagnosed diabetes among U.S. adults, 2023: 9.8%**
 
-- Basis: 9.80% (weighted by WTFA_A; universe: all sample adults; n=29489 unweighted)
+- 95% CI: [9.39, 10.20] (design-based, Taylor linearization; SE 0.21pp; DEFF 1.41)
+- Basis: 9.80% (95% CI 9.39-10.20; design-based SE 0.21pp, DEFF 1.41)
 - Verification: executed against NHIS 2023 Sample Adult public-use file (adult23.csv); verdict **PASS**.
 
 ## Related

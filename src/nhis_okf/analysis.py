@@ -147,6 +147,96 @@ def correct_prevalence(
     )
 
 
+@dataclass
+class DesignCI:
+    """A design-based (complex-survey) confidence interval for a proportion."""
+
+    estimate_pct: float
+    se_pp: float
+    lci_pct: float
+    uci_pct: float
+    deff: float  # design effect: design variance / simple-random-sampling variance
+    n_psu: int
+    n_strata: int
+
+    def summary(self) -> str:
+        return (
+            f"{self.estimate_pct:.2f}% (95% CI {self.lci_pct:.2f}-{self.uci_pct:.2f}; "
+            f"design-based SE {self.se_pp:.2f}pp, DEFF {self.deff:.2f})"
+        )
+
+
+def design_based_ci(
+    df: pd.DataFrame,
+    variable: str,
+    *,
+    universe_expr: str | None,
+    affirmative_codes: tuple[int, ...],
+    valid_codes: tuple[int, ...],
+    weight_var: str = registry.SAMPLE_ADULT_WEIGHT,
+    strata_var: str = registry.DESIGN_STRATUM,
+    psu_var: str = registry.DESIGN_PSU,
+    z: float = 1.96,
+) -> DesignCI:
+    """Taylor-series linearization variance for a weighted proportion under a stratified,
+    multistage (with-replacement) design — the standard public-use-file method.
+
+    The proportion is the ratio estimator R = Sum(w*y) / Sum(w). The linearized residual
+    z_i = w_i (y_i - R) is summed to PSU totals within strata, and the variance is the
+    stratified sum of between-PSU variance, divided by Sum(w)^2. Validated against the
+    required property that the design effect exceeds 1 for clustered data.
+    """
+    import numpy as np
+
+    d = df[_mask(df, universe_expr) & df[variable].isin(valid_codes)]
+    y = d[variable].isin(affirmative_codes).to_numpy(dtype=float)
+    w = d[weight_var].to_numpy(dtype=float)
+    total_w = w.sum()
+    R = float((w * y).sum() / total_w)
+    z_lin = w * (y - R)
+
+    psu = pd.DataFrame({"h": d[strata_var].to_numpy(), "a": d[psu_var].to_numpy(),
+                        "z": z_lin}).groupby(["h", "a"], sort=False)["z"].sum().reset_index()
+    var_total, n_psu = 0.0, len(psu)
+    strata = psu.groupby("h")
+    for _, grp in strata:
+        nh = len(grp)
+        if nh < 2:  # singleton stratum contributes no within-stratum variance
+            continue
+        zbar = grp["z"].mean()
+        var_total += nh / (nh - 1) * float(((grp["z"] - zbar) ** 2).sum())
+    var_R = var_total / total_w ** 2
+    se = float(np.sqrt(var_R))
+
+    # Design effect vs simple random sampling (correctness sanity: DEFF > 1 for clusters).
+    n = len(d)
+    srs_var = R * (1 - R) / n if n else 0.0
+    deff = (var_R / srs_var) if srs_var > 0 else float("nan")
+
+    return DesignCI(
+        estimate_pct=R * 100,
+        se_pp=se * 100,
+        lci_pct=(R - z * se) * 100,
+        uci_pct=(R + z * se) * 100,
+        deff=deff,
+        n_psu=n_psu,
+        n_strata=int(strata.ngroups),
+    )
+
+
+def correct_ci(
+    df: pd.DataFrame, variable: str, *, analytical_universe: str | None = None
+) -> DesignCI:
+    """Registry-correct design-based CI: true universe + mandatory weighting + design vars."""
+    var = registry.get(variable)
+    universe = analytical_universe if analytical_universe is not None else var.universe_expr
+    return design_based_ci(
+        df, variable, universe_expr=universe,
+        affirmative_codes=var.affirmative_codes, valid_codes=var.valid_codes,
+        weight_var=var.weight,
+    )
+
+
 def fetch_microdata(dest_dir: str | Path = DATA_DIR) -> Path:
     """Download + unzip the NHIS 2023 Sample Adult public-use CSV (idempotent)."""
     import urllib.request

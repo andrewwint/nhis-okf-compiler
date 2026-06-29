@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from . import registry
-from .analysis import compute_prevalence, correct_prevalence, PrevalenceResult
+from .analysis import correct_prevalence, correct_ci, PrevalenceResult, DesignCI
 from .concepts import Concept
 
 PASS = "PASS"
@@ -45,6 +45,8 @@ class VerifyResult:
     diagnosis: list[str] = field(default_factory=list)
     correct_detail: str = ""
     seeded_defect: bool = False
+    # Design-based 95% CI for analytical concepts (Taylor linearization).
+    ci: DesignCI | None = None
 
     @property
     def caught(self) -> bool:
@@ -106,13 +108,25 @@ def verify_concept(
     correct = correct_prevalence(
         df, concept.variable, analytical_universe=concept.analytical_universe
     )
+    ci = correct_ci(df, concept.variable, analytical_universe=concept.analytical_universe)
     delta = abs(concept.value_pct - correct.value_pct)
-    ok = delta <= concept.tolerance_pct
-    diagnosis = [] if ok else _diagnose(concept, correct)
+    diagnosis = [] if delta <= concept.tolerance_pct else _diagnose(concept, correct)
+
+    # CI-precision check: a claimed CI that is materially tighter than the design-based CI
+    # understates uncertainty (typically by ignoring the design effect). Caught like any
+    # other confidently-wrong number.
+    if concept.claimed_ci is not None:
+        claimed_hw = (concept.claimed_ci[1] - concept.claimed_ci[0]) / 2
+        design_hw = (ci.uci_pct - ci.lci_pct) / 2
+        if claimed_hw < design_hw - 0.1:  # 0.1pp slack
+            diagnosis.append(
+                f"claimed 95% CI half-width {claimed_hw:.2f}pp understates the design-based "
+                f"{design_hw:.2f}pp — it ignores the survey design effect (DEFF {ci.deff:.2f})"
+            )
 
     return VerifyResult(
         concept_id=concept.id,
-        verdict=PASS if ok else FAIL,
+        verdict=PASS if not diagnosis else FAIL,
         lint=lint,
         statistic=concept.statistic,
         claimed_pct=concept.value_pct,
@@ -120,8 +134,9 @@ def verify_concept(
         delta_pp=round(delta, 2),
         tolerance_pct=concept.tolerance_pct,
         diagnosis=diagnosis,
-        correct_detail=correct.summary(),
+        correct_detail=ci.summary(),
         seeded_defect=concept.seeded_defect,
+        ci=ci,
     )
 
 
