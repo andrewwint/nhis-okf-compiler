@@ -109,7 +109,7 @@ def render_concept(concept: Concept, r: VerifyResult, ts: str) -> str:
     return _frontmatter(concept, r, ts) + "\n\n" + _body(concept, r)
 
 
-def _write_log(report_results: list[VerifyResult], ts: str) -> None:
+def _write_log(report_results: list[VerifyResult], ts: str, log_path: Path = LOG_PATH) -> None:
     lines = [
         "# OKF audit log",
         "",
@@ -138,19 +138,26 @@ def _write_log(report_results: list[VerifyResult], ts: str) -> None:
             f"| {r.concept_id} | {r.verdict} | {claimed} | {correct} | {delta} | {note} |"
         )
     lines.append("")
-    LOG_PATH.write_text("\n".join(lines))
+    log_path.write_text("\n".join(lines))
 
 
 def compile_bundle(
-    df: pd.DataFrame, concept_list: list[Concept] | None = None
+    df: pd.DataFrame,
+    concept_list: list[Concept] | None = None,
+    *,
+    out_dir: Path = VARIABLES_DIR,
+    log_path: Path = LOG_PATH,
 ) -> CompileReport:
+    """Compile to `out_dir`. Defaults to the repo bundle; tests pass a temp dir so
+    running the suite never dirties the committed `.okf/` artifact."""
     concept_list = concept_list or load_all()
     results = verify_all(df, concept_list)
     by_id = {c.id: c for c in concept_list}
 
-    VARIABLES_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     # Start clean so quarantined concepts never linger from a previous run.
-    for old in VARIABLES_DIR.glob("*.md"):
+    for old in out_dir.glob("*.md"):
         old.unlink()
 
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -160,8 +167,8 @@ def compile_bundle(
         if r.verdict == FAIL:
             quarantined.append(r.concept_id)
             continue
-        (VARIABLES_DIR / f"{concept.id}.md").write_text(render_concept(concept, r, ts))
+        (out_dir / f"{concept.id}.md").write_text(render_concept(concept, r, ts))
         written.append(concept.id)
 
-    _write_log(results, ts)
+    _write_log(results, ts, log_path)
     return CompileReport(written=written, quarantined=quarantined, results=results)

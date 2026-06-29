@@ -15,7 +15,7 @@ verification:
   claimed_pct: 9.8
   delta_pp: 0.0
   detail: "9.80% (weighted by WTFA_A; universe: all sample adults; n=29489 unweighted)"
-  verified_at: 2026-06-29T03:06:23Z
+  verified_at: 2026-06-29T03:22:56Z
 links: [DIBINS_A, DIBAGETC_A, PREDIB_A]
 ---
 

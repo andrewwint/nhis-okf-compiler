@@ -16,7 +16,7 @@ verification:
   claimed_pct: 31.96
   delta_pp: 0.0
   detail: "31.96% (weighted by WTFA_A; universe: DIBEV_A == 1; n=3291 unweighted)"
-  verified_at: 2026-06-29T03:06:23Z
+  verified_at: 2026-06-29T03:22:56Z
 links: [DIBEV_A, DIBPILL_A]
 ---
 

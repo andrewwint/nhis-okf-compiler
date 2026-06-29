@@ -1,7 +1,7 @@
 # OKF audit log
 
 Compiled from NHIS 2023 Sample Adult public-use file (adult23.csv).
-Last run: 2026-06-29T03:06:23Z
+Last run: 2026-06-29T03:22:56Z
 
 Every concept is verified by *executing* its analysis against the real
 microdata with proper survey weights — not by checking links. Quarantined

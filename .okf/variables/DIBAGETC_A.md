@@ -10,7 +10,7 @@ source: "NHIS 2023 Sample Adult public-use file (adult23.csv)"
 verification:
   verdict: DESCRIPTIVE
   method: execution-grounded
-  verified_at: 2026-06-29T03:06:23Z
+  verified_at: 2026-06-29T03:22:56Z
 links: [DIBEV_A]
 ---
 
