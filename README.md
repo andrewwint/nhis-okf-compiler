@@ -30,8 +30,23 @@ What the slice proves, on real data:
   the correct 31.96% and **catches it (28.3pp off)**, quarantining it to `.okf/log.md`.
 - The grounded query can only serve verified figures: 3.66% never enters the bundle.
 
-Generative chat is scaffolded and key-gated; without a key the extractive answer is fully
-grounded in the verified bundle. Drop `ANTHROPIC_API_KEY` into `.env` to enable generation.
+### Chat (Strands + Bedrock AgentCore)
+
+The chat is a **Strands agent** whose only data tool reads the *verified* OKF bundle, so it
+is grounded-or-refuse: it cites verified concept ids, and refuses (rather than inventing a
+number) when the bundle lacks the answer. Three modes:
+
+- **Extractive** (default) — no key, no agent deps, fully grounded.
+- **Strands / Anthropic API** (local testing) — `pip install -e ".[agent]"`, drop
+  `ANTHROPIC_API_KEY` in `.env`, then `nhis query "..."` runs the agent.
+- **Strands / Bedrock + AgentCore** (deploy) — `pip install -e ".[agent,deploy]"`; the
+  agent runs on Bedrock (`config.bedrock_model_id`, default `claude-sonnet-4-6`) and is
+  wrapped for the runtime in [`src/nhis_okf/agentcore_app.py`](src/nhis_okf/agentcore_app.py).
+  Actual `agentcore`/CDK deploy is account-touching and gated.
+
+Retrieval is a derived index over the verified bundle (TF-IDF today; embeddings or a
+Bedrock Knowledge Base later). OKF stays the canonical substrate — only verified concepts
+are ever indexed, so a quarantined figure can never be served.
 
 ## The shape
 

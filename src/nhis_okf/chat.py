@@ -1,17 +1,21 @@
 """Grounded answering over the verified OKF bundle.
 
-Two modes, chosen automatically:
+Three layers, chosen automatically:
 
-* **Extractive (default, no key needed):** return the retrieved verified concept's
-  statistic with its survey-weighted basis and source citation. Fully functional and
-  fully grounded — it can only surface numbers that passed verification.
+* **Extractive (default, no key, no agent deps):** return the retrieved verified concept's
+  statistic with its survey-weighted basis and source citation. Fully grounded — it can
+  only surface numbers that passed verification.
 
-* **Generative (opt-in):** if ANTHROPIC_API_KEY is set (directly or via a local `.env`),
-  compose a natural-language answer *from the retrieved verified context only*, with the
-  same citation and safety framing. The key lights this up; nothing else changes.
+* **Strands agent (opt-in, local testing):** a Strands `Agent` with a `search_verified_okf`
+  tool. When `ANTHROPIC_API_KEY` is set, it runs against the Anthropic API; the deploy
+  target is the same agent on Bedrock (see `config.bedrock_model_id`). The agent is
+  grounded-or-refuse and may cite only verified concepts.
 
-Safety framing is always attached: this explores public, de-identified, aggregate survey
-data — it is not medical advice and makes no individual-level inference.
+* **AgentCore (deploy):** the same agent wrapped in `BedrockAgentCoreApp` — see
+  `agentcore_app.py`.
+
+The model is injectable so tests never touch the network. Safety framing — public,
+aggregate, not medical advice — is always attached.
 """
 
 from __future__ import annotations
@@ -19,7 +23,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
+from . import config
 from .retrieval import Retriever, Hit
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +34,21 @@ SAFETY = (
     "It is not medical advice and makes no individual-level inference. Every figure is "
     "survey-weighted and cited to its source variable."
 )
+
+OKF_ANALYST_PROMPT = """\
+You answer questions about U.S. health survey statistics using ONLY the verified NHIS
+concepts returned by the search_verified_okf tool.
+
+Hard rules:
+- Always call search_verified_okf first. Use ONLY the figures it returns. Quote the exact
+  survey-weighted percentage and cite the concept id in brackets, e.g. [DIBINS_A].
+- If the tool returns nothing relevant, say you cannot answer from the verified bundle. Do
+  NOT invent or estimate a number, and do not use outside knowledge for figures.
+- These are public, aggregate survey estimates. This is not medical advice; make no
+  individual-level inference and give no clinical recommendation.
+- Be concise and factual. State the survey-weighted basis (the denominator/universe) with
+  any figure.
+"""
 
 
 def _load_dotenv(path: Path = REPO_ROOT / ".env") -> None:
@@ -56,6 +77,69 @@ def _citation(hit: Hit) -> str:
     return f"{hit.concept.id} ({src})"
 
 
+# --- Strands tool: the agent's only window onto the data is the verified bundle ----------
+
+def _format_hits(hits: list[Hit]) -> str:
+    if not hits:
+        return "NO_VERIFIED_CONCEPTS_FOUND"
+    blocks = []
+    for h in hits:
+        fm = h.concept.frontmatter
+        stat = fm.get("statistic")
+        val = fm.get("value_pct")
+        detail = (fm.get("verification") or {}).get("detail", "")
+        line = f"[{h.concept.id}] {h.concept.label}"
+        if stat and val is not None:
+            line += f"\n  {stat}: {val}% ({detail})"
+        else:
+            line += f"\n  {h.concept.text.splitlines()[0] if h.concept.text else ''}"
+        blocks.append(line)
+    return "\n\n".join(blocks)
+
+
+def search_verified_okf(query: str) -> str:
+    """Search the verified NHIS OKF bundle and return matching concepts with their
+    survey-weighted figures. Returns NO_VERIFIED_CONCEPTS_FOUND if nothing matches."""
+    hits = Retriever.from_bundle().search(query, k=3)
+    return _format_hits(hits)
+
+
+def _as_tool():
+    """Wrap search_verified_okf as a Strands tool (imported lazily)."""
+    from strands import tool
+
+    return tool(search_verified_okf)
+
+
+def build_chat_agent(model: Any | None = None):
+    """Build the Strands grounded-answering agent.
+
+    Model selection when none is injected:
+      * ANTHROPIC_API_KEY present -> Anthropic API (local testing)
+      * otherwise -> Bedrock (the AgentCore deploy path)
+    Tests inject a stub model so no network call occurs.
+    """
+    from strands import Agent
+
+    if model is None:
+        if config.has_anthropic_key():
+            from strands.models.anthropic import AnthropicModel
+
+            model = AnthropicModel(
+                model_id=config.anthropic_model_id(), max_tokens=600
+            )
+        else:
+            from strands.models.bedrock import BedrockModel
+
+            model = BedrockModel(
+                model_id=config.bedrock_model_id(), region_name=config.aws_region()
+            )
+
+    return Agent(model=model, system_prompt=OKF_ANALYST_PROMPT, tools=[_as_tool()])
+
+
+# --- Public entry: extractive by default, generative when a model is available ----------
+
 def _extractive_answer(query: str, hits: list[Hit]) -> Answer:
     if not hits:
         return Answer(
@@ -72,7 +156,8 @@ def _extractive_answer(query: str, hits: list[Hit]) -> Answer:
         if detail:
             body += f" ({detail})"
     else:
-        body = f"{top.concept.label}: {top.concept.text.splitlines()[0] if top.concept.text else ''}"
+        first = top.concept.text.splitlines()[0] if top.concept.text else ""
+        body = f"{top.concept.label}: {first}"
     cites = [_citation(h) for h in hits]
     return Answer(
         text=f"{body}\n\nSource: {cites[0]}\n\n{SAFETY}",
@@ -82,25 +167,10 @@ def _extractive_answer(query: str, hits: list[Hit]) -> Answer:
     )
 
 
-def _generative_answer(query: str, hits: list[Hit]) -> Answer:
-    import anthropic  # imported lazily; only needed in generative mode
-
-    context = "\n\n".join(
-        f"[{h.concept.id}] {h.concept.label}\n{h.concept.text}" for h in hits
-    )
-    prompt = (
-        "Answer the question using ONLY the verified NHIS concepts below. Quote the "
-        "exact survey-weighted figure and cite the concept id. If the concepts do not "
-        f"contain the answer, say so. Do not invent numbers.\n\n"
-        f"Question: {query}\n\nVerified concepts:\n{context}"
-    )
-    client = anthropic.Anthropic()
-    msg = client.messages.create(
-        model="claude-opus-4-8",
-        max_tokens=600,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = "".join(block.text for block in msg.content if block.type == "text")
+def _generative_answer(query: str, hits: list[Hit], model: Any | None) -> Answer:
+    agent = build_chat_agent(model=model)
+    result = agent(query)
+    text = str(result).strip()
     return Answer(
         text=f"{text}\n\n{SAFETY}",
         mode="generative",
@@ -109,15 +179,33 @@ def _generative_answer(query: str, hits: list[Hit]) -> Answer:
     )
 
 
-def answer(query: str, k: int = 3, retriever: Retriever | None = None) -> Answer:
+def answer(
+    query: str,
+    k: int = 3,
+    retriever: Retriever | None = None,
+    *,
+    model: Any | None = None,
+    generative: bool | None = None,
+) -> Answer:
+    """Answer a question grounded in the verified bundle.
+
+    `generative` defaults to True when a model is injected or an Anthropic key is present;
+    set it False to force the keyless extractive path. The extractive path is always the
+    fallback if the agent errors.
+    """
     _load_dotenv()
     retriever = retriever or Retriever.from_bundle()
     hits = retriever.search(query, k=k)
-    if os.environ.get("ANTHROPIC_API_KEY") and hits:
+
+    if generative is None:
+        generative = model is not None or config.has_anthropic_key()
+
+    if generative and hits:
         try:
-            return _generative_answer(query, hits)
-        except Exception as exc:  # fall back rather than fail the query
+            return _generative_answer(query, hits, model)
+        except Exception as exc:  # never fail the query; fall back to grounded extractive
             ans = _extractive_answer(query, hits)
-            ans.text = f"[generative mode unavailable: {exc}; using extractive]\n\n" + ans.text
+            ans.text = f"[generative unavailable: {exc}; using extractive]\n\n" + ans.text
             return ans
+
     return _extractive_answer(query, hits)

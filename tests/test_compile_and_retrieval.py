@@ -44,7 +44,13 @@ def test_retrieval_returns_verified_insulin_concept(bundle):
 def test_query_serves_verified_number_with_citation_and_safety(bundle):
     _, out = bundle
     r = Retriever.from_bundle(out)
-    ans = answer("what share of adults with diabetes take insulin?", retriever=r)
+    # generative=False keeps the test hermetic (no network / no model call).
+    ans = answer(
+        "what share of adults with diabetes take insulin?",
+        retriever=r,
+        generative=False,
+    )
+    assert ans.mode == "extractive"
     assert "31.96" in ans.text
     assert "3.66" not in ans.text            # cannot serve the quarantined figure
     assert "not medical advice" in ans.text  # safety framing always present

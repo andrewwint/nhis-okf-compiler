@@ -29,9 +29,15 @@ until reuse earns it).
 - **Design-based variance.** Add Taylor-linearization confidence intervals using
   `PSTRAT`/`PPSU`, so verified figures carry proper survey standard errors, not just point
   estimates.
-- **Generative answering, hardened.** Promote the key-gated generative chat from scaffold
-  to a first-class, grounded mode with refusal when the verified bundle lacks the answer,
-  and a guard that it can only cite verified concepts.
+- **Generative answering on Strands + AgentCore (done; harden + deploy).** The chat is a
+  **Strands agent** whose only data tool reads the verified OKF bundle — grounded-or-refuse,
+  cites verified concept ids, never invents a number (validated live on both the Anthropic
+  API and Bedrock `claude-sonnet-4-6`). It is wrapped in a **Bedrock AgentCore**
+  entrypoint (`agentcore_app.py`) for deploy. Remaining: CDK/`agentcore` deploy (AWS,
+  gated), conversation memory, and a retrieval upgrade.
+- **Retrieval is a derived index, never coupled into OKF.** Keep the `Retriever` seam; the
+  upgrade path from TF-IDF is embeddings or a **Bedrock Knowledge Base built from `.okf/`**.
+  Invariant: only the verified bundle is indexed (`index ⊆ verified OKF`).
 - **Codebook ingestion (discovery).** Parse the NHIS data dictionaries / layout files into
   draft concepts automatically (the "discovery" loop step), so concept authoring scales
   past hand-writing YAML — with verification still gating what enters the bundle.
