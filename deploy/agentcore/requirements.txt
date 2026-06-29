@@ -1,0 +1,9 @@
+# Installed into the Bedrock AgentCore runtime container. The agent runs on Bedrock, so no
+# anthropic client is needed at runtime. The nhis_okf package itself is installed from the
+# project (pip install .) during `agentcore launch`; the .okf bundle ships in the build context.
+strands-agents>=1.0
+bedrock-agentcore>=1.9.1
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+PyYAML>=6.0
