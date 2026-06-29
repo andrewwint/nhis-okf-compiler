@@ -4,7 +4,7 @@ title: "Currently takes insulin (among adults with diagnosed diabetes)"
 description: "Weighted % currently taking insulin among U.S. adults with diagnosed diabetes, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, DIBINS_A, prevalence]
-timestamp: "2026-06-29T11:45:35Z"
+timestamp: "2026-06-29T12:00:45Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: DIBINS_A
 variable: DIBINS_A
@@ -20,8 +20,12 @@ verification:
   correct_pct: 31.96
   claimed_pct: 31.96
   delta_pp: 0.0
-  detail: "31.96% (weighted by WTFA_A; universe: DIBEV_A == 1; n=3291 unweighted)"
-  verified_at: 2026-06-29T11:45:35Z
+  detail: "31.96% (95% CI 30.08-33.84; design-based SE 0.96pp, DEFF 1.39)"
+  ci_95: [30.08, 33.84]
+  se_pp: 0.96
+  deff: 1.39
+  variance_method: taylor-linearization (design-based)
+  verified_at: 2026-06-29T12:00:45Z
 ---
 
 # Currently takes insulin (among adults with diagnosed diabetes)
@@ -39,7 +43,8 @@ rate with prediabetics who rarely use insulin).
 
 **Weighted % currently taking insulin among U.S. adults with diagnosed diabetes, 2023: 31.96%**
 
-- Basis: 31.96% (weighted by WTFA_A; universe: DIBEV_A == 1; n=3291 unweighted)
+- 95% CI: [30.08, 33.84] (design-based, Taylor linearization; SE 0.96pp; DEFF 1.39)
+- Basis: 31.96% (95% CI 30.08-33.84; design-based SE 0.96pp, DEFF 1.39)
 - Verification: executed against NHIS 2023 Sample Adult public-use file (adult23.csv); verdict **PASS**.
 
 ## Related

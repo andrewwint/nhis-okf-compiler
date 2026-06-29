@@ -4,9 +4,10 @@ Compile a messy, high-stakes public health dataset (**CDC NHIS**) into a *verifi
 
 The point is not the chatbot. The point is that Baton's verify lane **executes the documented analysis against the real microdata** and catches a concept that is *structurally valid but statistically wrong* — a prevalence that ignores the survey weights, or a figure inflated because it skips a skip-pattern. The markdown is clean, every link resolves, and the number is still wrong; a passive RAG ships that confidently, Baton's cold-read reviewer runs it and catches it. **Execution-grounded verification, not link-checking.**
 
-> **Status: built and verified (NHIS 2018 + 2023; diabetes and hypertension).** The
-> end-to-end loop runs on real CDC microdata and the execution-grounded verifier catches two
-> classes of
+> **Status: built and verified (NHIS 2018 + 2023; diabetes and hypertension; design-based
+> CIs).** Every verified figure carries a complex-survey 95% confidence interval. The
+> end-to-end loop runs on real CDC microdata and the execution-grounded verifier catches
+> three classes of
 > structurally-valid-but-statistically-wrong number a link-check passes: a skip-pattern /
 > weighting error within a year, and a broken cross-year trend from the 2019 redesign
 > rename. The bundle conforms to the OKF v0.1 spec. Full plan in
@@ -84,6 +85,18 @@ and corrected:
   32.26% of adults have it, and **79.62%** of those take BP medication (weighted, universe
   `HYPEV_A == 1`) — while the seeded whole-sample/unweighted claim of 30.98% is caught
   (48.6pp off) and quarantined. Same verifier, new variables.
+- **Understated uncertainty (design-based CIs).** Every verified figure carries a
+  complex-survey 95% CI from Taylor linearization (strata `PSTRAT`, PSU `PPSU`, weight
+  `WTFA_A`) — e.g. diabetes 9.80% [9.39, 10.20], insulin 31.96% [30.08, 33.84]. A seeded
+  concept with the *correct* point estimate but a simple-random-sampling CI (ignoring the
+  design effect, DEFF ≈ 1.4) is caught for being **too precise** and quarantined. The CI math
+  is hand-rolled and validated (point matches; DEFF > 1) rather than taken from a deprecated
+  library — see the note below.
+
+> **On the CI library:** the obvious choice (`samplics`) is archived/unmaintained and pulls
+> in `polars`, which crashes under Rosetta on Apple Silicon. So the design-based variance is
+> implemented directly (standard stratified, with-replacement Taylor linearization, ~20 lines
+> of numpy) and validated by the property that proves it — the design effect exceeds 1.
 
 ### Chat (Strands + Bedrock AgentCore)
 

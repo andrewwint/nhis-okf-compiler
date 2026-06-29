@@ -1,0 +1,25 @@
+id: DIBEV_A__tightci
+variable: DIBEV_A
+label: "Diabetes prevalence with an over-precise CI (NAIVE — seeded defect)"
+seeded_defect: true
+analytical_universe: null
+claim:
+  statistic: "Weighted prevalence of diagnosed diabetes among U.S. adults, 2023"
+  method:
+    universe_expr: null
+    weighted: true
+  # The point estimate is CORRECT — only the stated precision is wrong.
+  value_pct: 9.80
+  tolerance_pct: 0.3
+  # WRONG: a simple-random-sampling CI that ignores the survey design effect, so it is far
+  # too narrow. The design-based CI is roughly [9.39, 10.20].
+  ci_95: [9.66, 9.94]
+links: [HYPEV_A]
+prose: |
+  Diagnosed diabetes affected 9.80% of U.S. adults in 2023 (95% CI 9.66-9.94%).
+
+  (This concept is intentionally seeded. The point estimate is right and the markdown is
+  clean — but the confidence interval is computed as if the survey were a simple random
+  sample, ignoring the clustering/design effect. The honest design-based interval is about
+  twice as wide. An over-precise interval is its own confidently-wrong number; execution
+  recomputes the design-based CI and catches it.)

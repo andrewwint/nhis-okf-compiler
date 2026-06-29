@@ -38,6 +38,8 @@ class Concept:
     method: ClaimMethod | None = None
     value_pct: float | None = None
     tolerance_pct: float = 0.5
+    # Optional claimed 95% CI [low, high] in percentage points, for CI-precision checks.
+    claimed_ci: tuple[float, float] | None = None
     links: list[str] = field(default_factory=list)
     prose: str = ""
     # A concept may be deliberately seeded as a defect, to demonstrate the catch.
@@ -64,6 +66,10 @@ def _parse(doc: dict, source: Path | None = None) -> Concept:
         statistic = claim.get("statistic", "")
         value_pct = float(claim["value_pct"])
         tolerance_pct = float(claim.get("tolerance_pct", 0.5))
+    claimed_ci = None
+    if claim is not None and claim.get("ci_95"):
+        lo, hi = claim["ci_95"]
+        claimed_ci = (float(lo), float(hi))
     return Concept(
         id=doc["id"],
         variable=doc["variable"],
@@ -73,6 +79,7 @@ def _parse(doc: dict, source: Path | None = None) -> Concept:
         method=method,
         value_pct=value_pct,
         tolerance_pct=tolerance_pct,
+        claimed_ci=claimed_ci,
         links=list(doc.get("links", [])),
         prose=doc.get("prose", "").strip(),
         seeded_defect=bool(doc.get("seeded_defect", False)),

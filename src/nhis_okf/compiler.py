@@ -122,6 +122,13 @@ def _frontmatter(concept: Concept, r: VerifyResult, ts: str) -> str:
             f"  delta_pp: {r.delta_pp}",
             f'  detail: "{r.correct_detail}"',
         ]
+        if r.ci is not None:
+            lines += [
+                f"  ci_95: [{r.ci.lci_pct:.2f}, {r.ci.uci_pct:.2f}]",
+                f"  se_pp: {r.ci.se_pp:.2f}",
+                f"  deff: {r.ci.deff:.2f}",
+                "  variance_method: taylor-linearization (design-based)",
+            ]
     lines += [f"  verified_at: {ts}", "---"]
     return "\n".join(lines)
 
@@ -134,6 +141,14 @@ def _body(concept: Concept, r: VerifyResult) -> str:
             "",
             f"**{concept.statistic}: {r.correct_pct}%**",
             "",
+        ]
+        if r.ci is not None:
+            parts.append(
+                f"- 95% CI: [{r.ci.lci_pct:.2f}, {r.ci.uci_pct:.2f}] "
+                f"(design-based, Taylor linearization; SE {r.ci.se_pp:.2f}pp; "
+                f"DEFF {r.ci.deff:.2f})"
+            )
+        parts += [
             f"- Basis: {r.correct_detail}",
             f"- Verification: executed against {SOURCE}; verdict **{r.verdict}**.",
             "",

@@ -4,7 +4,7 @@ title: "Ever told you had high blood pressure"
 description: "Weighted prevalence of diagnosed hypertension among U.S. adults, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, HYPEV_A, prevalence]
-timestamp: "2026-06-29T11:45:35Z"
+timestamp: "2026-06-29T12:00:45Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: HYPEV_A
 variable: HYPEV_A
@@ -19,8 +19,12 @@ verification:
   correct_pct: 32.26
   claimed_pct: 32.26
   delta_pp: 0.0
-  detail: "32.26% (weighted by WTFA_A; universe: all sample adults; n=29471 unweighted)"
-  verified_at: 2026-06-29T11:45:35Z
+  detail: "32.26% (95% CI 31.57-32.94; design-based SE 0.35pp, DEFF 1.64)"
+  ci_95: [31.57, 32.94]
+  se_pp: 0.35
+  deff: 1.64
+  variance_method: taylor-linearization (design-based)
+  verified_at: 2026-06-29T12:00:45Z
 ---
 
 # Ever told you had high blood pressure
@@ -34,7 +38,8 @@ estimate the U.S. adult population.
 
 **Weighted prevalence of diagnosed hypertension among U.S. adults, 2023: 32.26%**
 
-- Basis: 32.26% (weighted by WTFA_A; universe: all sample adults; n=29471 unweighted)
+- 95% CI: [31.57, 32.94] (design-based, Taylor linearization; SE 0.35pp; DEFF 1.64)
+- Basis: 32.26% (95% CI 31.57-32.94; design-based SE 0.35pp, DEFF 1.64)
 - Verification: executed against NHIS 2023 Sample Adult public-use file (adult23.csv); verdict **PASS**.
 
 ## Related

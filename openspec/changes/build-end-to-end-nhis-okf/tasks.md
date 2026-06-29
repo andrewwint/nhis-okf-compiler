@@ -14,9 +14,9 @@ mandatory, safety scope holds. Implement and verify one slice at a time.
 - [ ] 2.3 Tests: age-at-diagnosis weighted mean verified; a wrong mean is caught
 
 ## 3. Design-based variance
-- [ ] 3.1 Add Taylor-linearization SEs/CIs using PSTRAT/PPSU
-- [ ] 3.2 Carry CI into the OKF frontmatter and the answer text
-- [ ] 3.3 Tests: CI computed; a claim whose point estimate is right but implausibly precise is flagged
+- [x] 3.1 Add Taylor-linearization SEs/CIs using PSTRAT/PPSU (hand-rolled; samplics rejected as archived + polars-crash; validated DEFF > 1)
+- [x] 3.2 Carry CI into the OKF frontmatter and the answer text
+- [x] 3.3 Tests: CI computed; a claim whose point estimate is right but implausibly precise is flagged (DIBEV_A__tightci)
 
 ## 4. Multi-year + the redesign-rename defect
 - [ ] 4.1 `nhis fetch` supports a year argument; load NHIS 2018 + a post-redesign year
