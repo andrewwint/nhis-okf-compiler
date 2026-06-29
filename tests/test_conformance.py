@@ -29,6 +29,23 @@ def test_reserved_files_present(df, tmp_path):
     assert (tmp_path / "log.md").exists()    # audit history
 
 
+def test_no_dangling_cross_links(df, tmp_path):
+    """Every `./X.md` relational link in the bundle resolves to a real concept file. OKF
+    tolerates broken links, but we keep the bundle clean."""
+    import re
+
+    out = tmp_path / "variables"
+    compile_bundle(df, out_dir=out, log_path=tmp_path / "log.md")
+    ids = {p.stem for p in out.glob("*.md")}
+    dangling = [
+        (p.name, m)
+        for p in out.glob("*.md")
+        for m in re.findall(r"\]\(\./([A-Za-z0-9_]+)\.md\)", p.read_text())
+        if m not in ids
+    ]
+    assert not dangling, f"dangling links: {dangling}"
+
+
 def test_conformance_fails_on_concept_missing_type(df, tmp_path):
     out = tmp_path / "variables"
     compile_bundle(df, out_dir=out, log_path=tmp_path / "log.md")

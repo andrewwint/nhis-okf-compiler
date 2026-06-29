@@ -1,0 +1,13 @@
+id: DIBPILL_A
+variable: DIBPILL_A
+label: "Takes diabetic pills (among adults with diagnosed diabetes)"
+analytical_universe: "DIBEV_A == 1"
+# Descriptive concept: documents the companion-to-insulin medication item and resolves the
+# cross-link from DIBINS_A. (A weighted "% on pills among diagnosed" claim is a natural
+# next analytical concept; kept descriptive here to stay lean.)
+links: [DIBEV_A, DIBINS_A]
+prose: |
+  DIBPILL_A records whether an adult currently takes diabetic pills (oral medication). Like
+  the insulin item ([[DIBINS_A]]), it is a skip-pattern question asked of adults with
+  diabetes or prediabetes, so any "share on pills" claim must use the analytical universe
+  DIBEV_A == 1 (adults with diagnosed diabetes), survey-weighted — not the whole sample.

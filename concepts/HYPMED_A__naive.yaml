@@ -1,0 +1,23 @@
+id: HYPMED_A__naive
+variable: HYPMED_A
+label: "Share of U.S. adults on blood-pressure medication (NAIVE — seeded defect)"
+seeded_defect: true
+analytical_universe: "HYPEV_A == 1"
+claim:
+  statistic: "Percent of U.S. adults with diagnosed hypertension taking blood-pressure medication, 2023"
+  method:
+    universe_expr: null     # WRONG: whole sample, ignores the skip-pattern universe
+    weighted: false         # WRONG: unweighted, ignores mandatory survey weights
+  value_pct: 30.98
+  tolerance_pct: 0.5
+links: [HYPEV_A]
+prose: |
+  In the 2023 National Health Interview Survey, 30.98% of adults reported currently taking
+  blood-pressure medication, computed directly from the HYPMED_A item across the Sample Adult
+  file.
+
+  (This concept is intentionally seeded. Its markdown is clean and its link resolves, and you
+  can reproduce 30.98% by running its stated method. It is still wrong: the denominator is the
+  whole sample rather than people with diagnosed hypertension, and it ignores the survey
+  weights. The correct figure among adults with hypertension is far higher. A link-checker
+  passes this; execution-grounded verification does not.)

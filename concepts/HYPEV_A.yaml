@@ -1,0 +1,17 @@
+id: HYPEV_A
+variable: HYPEV_A
+label: "Ever told you had high blood pressure"
+analytical_universe: null
+claim:
+  statistic: "Weighted prevalence of diagnosed hypertension among U.S. adults, 2023"
+  method:
+    universe_expr: null
+    weighted: true
+  value_pct: 32.26
+  tolerance_pct: 0.5
+links: [HYPMED_A]
+prose: |
+  HYPEV_A records whether a sample adult was ever told by a health professional that they
+  had high blood pressure (hypertension). "Diagnosed hypertension" is HYPEV_A == 1. The
+  population estimate must be survey-weighted (WTFA_A); the unweighted sample share does not
+  estimate the U.S. adult population.

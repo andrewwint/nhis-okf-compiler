@@ -17,6 +17,7 @@ from .compiler import compile_bundle, check_conformance, OKF_DIR
 # Columns the diabetes slice needs (keeps the 29MB load fast).
 SLICE_COLUMNS = [
     "DIBEV_A", "DIBINS_A", "DIBPILL_A", "DIBAGETC_A", "PREDIB_A", "GESDIB_A",
+    "HYPEV_A", "HYPMED_A",
     "WTFA_A", "PSTRAT", "PPSU",
 ]
 

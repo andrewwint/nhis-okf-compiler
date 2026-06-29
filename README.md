@@ -4,8 +4,9 @@ Compile a messy, high-stakes public health dataset (**CDC NHIS**) into a *verifi
 
 The point is not the chatbot. The point is that Baton's verify lane **executes the documented analysis against the real microdata** and catches a concept that is *structurally valid but statistically wrong* — a prevalence that ignores the survey weights, or a figure inflated because it skips a skip-pattern. The markdown is clean, every link resolves, and the number is still wrong; a passive RAG ships that confidently, Baton's cold-read reviewer runs it and catches it. **Execution-grounded verification, not link-checking.**
 
-> **Status: built and verified (NHIS 2018 + 2023, diabetes).** The end-to-end loop runs on
-> real CDC microdata and the execution-grounded verifier catches two classes of
+> **Status: built and verified (NHIS 2018 + 2023; diabetes and hypertension).** The
+> end-to-end loop runs on real CDC microdata and the execution-grounded verifier catches two
+> classes of
 > structurally-valid-but-statistically-wrong number a link-check passes: a skip-pattern /
 > weighting error within a year, and a broken cross-year trend from the 2019 redesign
 > rename. The bundle conforms to the OKF v0.1 spec. Full plan in
@@ -79,6 +80,10 @@ and corrected:
   trend (`DIBEV1`/`WTFA_SA` in 2018, `DIBEV_A`/`WTFA_A` in 2023) is **10.09% → 9.80%**.
 - The grounded query can only serve verified figures: neither quarantined number enters the
   bundle.
+- **Generalizes to a second condition, no engine change.** Hypertension adds the same shape:
+  32.26% of adults have it, and **79.62%** of those take BP medication (weighted, universe
+  `HYPEV_A == 1`) — while the seeded whole-sample/unweighted claim of 30.98% is caught
+  (48.6pp off) and quarantined. Same verifier, new variables.
 
 ### Chat (Strands + Bedrock AgentCore)
 
