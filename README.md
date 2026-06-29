@@ -4,9 +4,11 @@ Compile a messy, high-stakes public health dataset (**CDC NHIS**) into a *verifi
 
 The point is not the chatbot. The point is that Baton's verify lane **executes the documented analysis against the real microdata** and catches a concept that is *structurally valid but statistically wrong* — a prevalence that ignores the survey weights, or a figure inflated because it skips a skip-pattern. The markdown is clean, every link resolves, and the number is still wrong; a passive RAG ships that confidently, Baton's cold-read reviewer runs it and catches it. **Execution-grounded verification, not link-checking.**
 
-> **Status: lean slice built and verified (NHIS 2023, diabetes).** The end-to-end loop
-> runs on real CDC microdata; the execution-grounded verifier catches a
-> structurally-valid-but-statistically-wrong number that a link-check passes. Full plan in
+> **Status: built and verified (NHIS 2018 + 2023, diabetes).** The end-to-end loop runs on
+> real CDC microdata and the execution-grounded verifier catches two classes of
+> structurally-valid-but-statistically-wrong number a link-check passes: a skip-pattern /
+> weighting error within a year, and a broken cross-year trend from the 2019 redesign
+> rename. The bundle conforms to the OKF v0.1 spec. Full plan in
 > [docs/PRODUCT.md](docs/PRODUCT.md); next phase in
 > [openspec/changes/build-end-to-end-nhis-okf](openspec/changes/build-end-to-end-nhis-okf/proposal.md).
 
@@ -52,21 +54,31 @@ Two consequences worth stating plainly:
 
 ```bash
 python3 -m venv .venv && ./.venv/bin/pip install -e ".[dev]"
-./.venv/bin/nhis fetch      # download the NHIS 2023 Sample Adult public-use file
-./.venv/bin/nhis verify     # execution-grounded verification of every concept
-./.venv/bin/nhis compile    # emit the verified OKF bundle; quarantine failures
+./.venv/bin/nhis fetch        # download the NHIS 2018 + 2023 Sample Adult public-use files
+./.venv/bin/nhis verify       # execution-grounded verification of every concept
+./.venv/bin/nhis trends       # cross-year verification (the 2019 redesign-rename catch)
+./.venv/bin/nhis compile      # emit the verified OKF bundle; quarantine failures
+./.venv/bin/nhis conformance  # check the bundle against the OKF v0.1 spec
 ./.venv/bin/nhis query "what share of adults with diabetes take insulin?"
 ./.venv/bin/pytest -q
 ```
 
-What the slice proves, on real data:
+What the slice proves, on real data — two classes of confidently-wrong number, each caught
+and corrected:
 
-- **Correct:** 31.96% of U.S. adults with diagnosed diabetes currently take insulin
-  (weighted by `WTFA_A`, universe `DIBEV_A == 1`).
-- **The seeded defect:** a clean-markdown concept claims 3.66% (computed over the whole
-  sample, unweighted). Its links resolve and the lint passes — but execution recomputes
-  the correct 31.96% and **catches it (28.3pp off)**, quarantining it to `.okf/log.md`.
-- The grounded query can only serve verified figures: 3.66% never enters the bundle.
+- **Within-year (skip-pattern + weighting).** A clean-markdown concept claims 3.66% of
+  adults take insulin (computed over the whole sample, unweighted). Its links resolve and
+  the lint passes — but execution recomputes the correct figure and **catches it (28.3pp
+  off)**, quarantines the 3.66% to `.okf/log.md`, and the bundle serves the **corrected
+  31.96%** (weighted, universe `DIBEV_A == 1`). The wrong number is not just flagged — it is
+  removed and replaced by the verified one.
+- **Cross-year (the 2019 redesign rename).** A concept claims a flat ~9.8% diabetes trend
+  by joining 2018 and 2023 on a single variable name. But the diabetes item was renamed
+  (`DIBEV1` in 2018 → `DIBEV_A` in 2023), so that name does not exist in 2018 — the join
+  silently drops a year. Execution catches the rename gap and quarantines it; the verified
+  trend (`DIBEV1`/`WTFA_SA` in 2018, `DIBEV_A`/`WTFA_A` in 2023) is **10.09% → 9.80%**.
+- The grounded query can only serve verified figures: neither quarantined number enters the
+  bundle.
 
 ### Chat (Strands + Bedrock AgentCore)
 

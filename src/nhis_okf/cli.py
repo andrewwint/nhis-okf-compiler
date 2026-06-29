@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import analysis, concepts as concepts_mod, verify as verify_mod
+from . import analysis, concepts as concepts_mod, verify as verify_mod, trends as trends_mod, registry
 from .compiler import compile_bundle, check_conformance, OKF_DIR
 
 # Columns the diabetes slice needs (keeps the 29MB load fast).
@@ -26,9 +26,28 @@ def _load_df():
 
 
 def cmd_fetch(_args) -> int:
-    path = analysis.fetch_microdata()
-    print(f"microdata ready: {path}")
+    for year in sorted(registry.YEAR_FILES):
+        path = trends_mod.fetch_year(year)
+        print(f"microdata ready ({year}): {path}")
     return 0
+
+
+def cmd_trends(_args) -> int:
+    results = trends_mod.verify_all_trends()
+    caught = 0
+    for r in results:
+        line = f"[{r.verdict:5}] {r.concept_id}  correct={r.correct}"
+        print(line)
+        for d in r.diagnosis:
+            print(f"    - {d}")
+        if r.caught:
+            caught += 1
+            print("    ^ caught by EXECUTION (the lint passed)")
+    print(f"\n{caught} cross-year defect(s) caught by execution-grounded verification.")
+    real_failures = [
+        r for r in results if r.verdict == trends_mod.FAIL and not r.seeded_defect
+    ]
+    return 1 if real_failures else 0
 
 
 def cmd_verify(_args) -> int:
@@ -58,6 +77,9 @@ def cmd_compile(_args) -> int:
     report = compile_bundle(df)
     print(f"written to .okf/variables/: {report.written}")
     print(f"quarantined (failed verification): {report.quarantined}")
+    if report.trend_results:
+        print(f"trends written: {report.trend_written}")
+        print(f"trends quarantined: {report.trend_quarantined}")
     print(f"audit log: .okf/log.md")
     if not report.ok:
         print("WARNING: compile invariant violated (a seeded defect passed or a sound "
@@ -94,6 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("compile", help="verify concepts and emit the OKF bundle")
     sub.add_parser("verify", help="run execution-grounded verification")
     sub.add_parser("conformance", help="check the bundle against the OKF v0.1 spec")
+    sub.add_parser("trends", help="verify cross-year trends (the 2019 redesign-rename catch)")
     q = sub.add_parser("query", help="ask a question grounded in the verified bundle")
     q.add_argument("question")
     return p
@@ -106,6 +129,7 @@ def main(argv=None) -> int:
         "compile": cmd_compile,
         "verify": cmd_verify,
         "conformance": cmd_conformance,
+        "trends": cmd_trends,
         "query": cmd_query,
     }[args.command](args)
 

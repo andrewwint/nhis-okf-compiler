@@ -1,0 +1,21 @@
+id: TREND_diabetes_2018_2023
+canonical: diabetes_ever
+years: [2018, 2023]
+title: "Diagnosed diabetes prevalence, 2018 vs 2023"
+claim:
+  statistic: "Weighted prevalence of diagnosed diabetes among U.S. adults, 2018 vs 2023"
+  method:
+    # Rename-aware: each year resolved to its own variable + weight across the 2019 redesign.
+    per_year_variable: {2018: DIBEV1, 2023: DIBEV_A}
+    weighted: true
+  values_pct: {2018: 10.09, 2023: 9.80}
+  tolerance_pct: 0.3
+links: [DIBEV_A]
+prose: |
+  Weighted prevalence of diagnosed diabetes among U.S. adults, compared across the 2019 NHIS
+  redesign. The variable was renamed: `DIBEV1` (2018, weight `WTFA_SA`) became `DIBEV_A`
+  (2023, weight `WTFA_A`). For comparability, 2018 borderline diabetes (`DIBEV1 == 3`) is
+  counted as not-diagnosed, matching 2023's split of prediabetes into a separate item.
+
+  A correct trend resolves each year to its own variable and weight; it does not join the two
+  years by a single variable name.
