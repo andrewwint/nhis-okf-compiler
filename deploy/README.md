@@ -34,15 +34,43 @@ browser ──> Lambda Function URL (public, no auth)   serves the page (GET) + 
   rate caps + budget apply; fine for a brief supervised demo, not for leaving it up.)
 
 ## 1. Deploy the AgentCore runtime
-From the repo root, with the `.okf/` bundle present (it is committed):
+The AgentCore CLI (the Node-based `agentcore` on PATH) is **config-file + CDK driven** — it
+scaffolds `agentcore.json` + CDK, then deploys. Commands below mirror the proven flow in the
+sibling `company-intel-agent` project. (Run `agentcore --help` to confirm the verbs match your
+installed version; older/newer versions differ.)
+
 ```bash
-agentcore configure --entrypoint src/nhis_okf/agentcore_app.py \
-  --requirements-file deploy/agentcore/requirements.txt
-agentcore launch          # builds the container, pushes to ECR, creates the runtime
+# One-time: scaffold the project config (agentcore/ + CDK): Strands + Bedrock + Python + CodeZip
+agentcore create --framework Strands --model-provider Bedrock --language Python --build CodeZip
 ```
-Note the **runtime ARN** it prints. (First-deploy checks: confirm the container can import
-`nhis_okf` — `src/` on `PYTHONPATH` — and reach `.okf/`; confirm the `InvokeAgentRuntime`
-response shape matches `deploy/lambda/handler.py`'s parsing.)
+Then, in the generated `agentcore.json`:
+- **entrypoint** → `src/nhis_okf/agentcore_app.py`, function `invoke` (`app = BedrockAgentCoreApp()`).
+- **codeLocation** must include `src/nhis_okf/` **and** the committed `.okf/` bundle (the agent
+  reads it at runtime).
+- **requirements** → `deploy/agentcore/requirements.txt` (no pandas — build-time only).
+- **env** → `AWS_REGION=us-east-1`, optionally `NHIS_BEDROCK_MODEL` (default
+  `us.anthropic.claude-sonnet-4-6`).
+
+AgentCore runtime is **arm64 (aarch64)** — build deps for that platform even from x86:
+```bash
+uv pip install --python-platform aarch64-manylinux2014 --target ./build \
+  strands-agents bedrock-agentcore scikit-learn numpy PyYAML
+```
+Deploy (CDK under the hood) and smoke:
+```bash
+agentcore deploy
+agentcore invoke '{"question": "what share of adults with diabetes take insulin?"}'
+```
+Note the **runtime ARN** it outputs (feeds CDK step 2). Local smoke first:
+`LOCAL_DEV=1 agentcore dev` then `agentcore invoke --dev '{"question":"..."}'`.
+
+First-deploy checks: the CodeZip includes `src/nhis_okf/` + `.okf/`; the container imports
+`nhis_okf` and reaches the bundle; the `InvokeAgentRuntime` response shape matches
+`deploy/lambda/handler.py`. Keep the zip ≤ 250 MB, or switch to `--build Container`.
+
+Runtime gotchas (AgentCore): ephemeral filesystem (the shipped bundle is read-only use — fine;
+don't write to disk), 15-minute synchronous cap (one Q&A is tiny), 25 TPS default quota,
+keep Bedrock in us-east-1.
 
 ## 2. Deploy the public endpoint (CDK)
 ```bash
