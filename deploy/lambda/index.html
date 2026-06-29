@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NHIS OKF — verified health-survey Q&A</title>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <style>
     body { font: 16px/1.5 system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
     h1 { font-size: 1.3rem; }
@@ -12,9 +13,10 @@
     .msg { padding: 0.6rem 0.8rem; border-radius: 8px; margin: 0.4rem 0; white-space: pre-wrap; }
     .you { background: #eef; }
     .bot { background: #f4f4f4; }
-    form { display: flex; gap: 0.5rem; }
-    input { flex: 1; padding: 0.6rem; font-size: 1rem; }
+    form { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    input { flex: 1; min-width: 240px; padding: 0.6rem; font-size: 1rem; }
     button { padding: 0.6rem 1rem; font-size: 1rem; }
+    .cf { flex-basis: 100%; }
   </style>
 </head>
 <body>
@@ -27,6 +29,7 @@
   <form id="f">
     <input id="q" maxlength="600" placeholder="e.g. what share of adults with diabetes take insulin?" autocomplete="off" />
     <button>Ask</button>
+    <div class="cf cf-turnstile" data-sitekey="__TURNSTILE_SITE_KEY__"></div>
   </form>
   <script src="./app.js"></script>
 </body>

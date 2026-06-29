@@ -21,15 +21,19 @@ form.addEventListener("submit", async (e) => {
   add(q, "you");
   input.value = "";
   const pending = add("…", "bot");
+  // Cloudflare Turnstile token (empty if the widget isn't configured/rendered).
+  const token = (window.turnstile && window.turnstile.getResponse()) || "";
   try {
     const r = await fetch(API_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ question: q }),
+      body: JSON.stringify({ question: q, turnstile_token: token }),
     });
     const data = await r.json();
     pending.textContent = data.answer || data.error || "(no answer)";
   } catch (err) {
     pending.textContent = "Request failed: " + err;
+  } finally {
+    if (window.turnstile) window.turnstile.reset();  // one token per ask
   }
 });
