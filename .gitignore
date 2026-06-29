@@ -15,3 +15,6 @@ __pycache__/
 
 # Run working state (kept local, not committed product source — see Baton Run Artifacts)
 .agents/
+
+# macOS
+.DS_Store

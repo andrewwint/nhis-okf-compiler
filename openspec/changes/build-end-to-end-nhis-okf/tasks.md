@@ -33,10 +33,12 @@ mandatory, safety scope holds. Implement and verify one slice at a time.
 - [ ] 6.1 Add hypertension variables + universes; author concepts + seeded defect
 - [ ] 6.2 Confirm the pattern generalizes with no engine changes
 
-## 7. Hardened generative answering
-- [ ] 7.1 Promote generative mode: grounded-only, refuse when the bundle lacks the answer
-- [ ] 7.2 Guard: generated answers can cite only verified concept ids; no invented numbers
-- [ ] 7.3 Tests (mockable without a key): refusal path; citation-only guard
+## 7. Generative answering on Strands + AgentCore
+- [x] 7.1 Strands agent with an OKF-retrieval tool; grounded-or-refuse; cite verified ids (validated live, Anthropic + Bedrock)
+- [x] 7.2 AgentCore entrypoint (`BedrockAgentCoreApp`) wrapping the agent
+- [x] 7.3 Hermetic tests (tool grounding, refusal-is-agent's-job, model selection)
+- [ ] 7.4 Deploy via CDK / `agentcore` (AWS, account-touching — gated)
+- [ ] 7.5 Conversation memory (AgentCore Memory) for multi-turn
 
 ## 8. Eval + packaging
 - [ ] 8.1 `evals/`: a seeded-defect set measuring catch-rate per defect class

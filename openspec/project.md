@@ -22,7 +22,16 @@ other topics/years/datasets only when reuse earns it.
 - Python 3.11; pandas / numpy for analysis; scikit-learn (TF-IDF) for local retrieval
 - PyYAML for concept files and OKF frontmatter
 - pytest for the test suite
-- Optional: `anthropic` for generative answering (extractive works without a key)
+- Chat: **Strands Agents** (grounded-answering agent with an OKF-retrieval tool), Anthropic
+  API for local testing, **Amazon Bedrock** at deploy; **Bedrock AgentCore**
+  (`BedrockAgentCoreApp`) as the runtime. Extractive answering works with no key/deps.
+
+### Architecture principle: OKF is the substrate; vector search is a derived index
+OKF (the verified markdown+YAML bundle) is the canonical knowledge. Any retrieval — TF-IDF
+now, embeddings or a Bedrock Knowledge Base later — is an index **built from the verified
+bundle**, never baked into the format. The invariant that matters is `index ⊆ verified OKF`:
+only verified concepts are ever indexed, so a quarantined figure cannot be retrieved. The
+chat agent's only data tool reads that same verified bundle.
 
 ## Project Conventions
 
