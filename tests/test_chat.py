@@ -50,6 +50,14 @@ def test_build_agent_uses_anthropic_when_key_present(monkeypatch):
     assert isinstance(getattr(agent, "model", None), AnthropicModel)
 
 
+def test_over_long_question_is_rejected_before_any_model_call(monkeypatch):
+    """Cost guardrail for the public no-auth endpoint: reject over-long input up front."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-used")  # would go generative
+    ans = chat.answer("why " * 400)  # well over MAX_QUESTION_CHARS
+    assert ans.mode == "rejected"
+    assert "too long" in ans.text.lower()
+
+
 def test_extractive_path_is_grounded(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     ans = chat.answer("insulin among adults with diabetes", generative=False)

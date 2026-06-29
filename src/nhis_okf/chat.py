@@ -35,6 +35,13 @@ SAFETY = (
     "survey-weighted and cited to its source variable."
 )
 
+# Per-invocation cost guardrails (the public endpoint has no auth — these bound spend).
+# Output is hard-capped at the model; input is length-limited; one grounded answer per call
+# (no multi-turn accumulation). With a public no-auth endpoint these + an AWS budget alarm
+# are the only things between the endpoint and a runaway bill, so keep them tight.
+MAX_OUTPUT_TOKENS = 600
+MAX_QUESTION_CHARS = 600
+
 OKF_ANALYST_PROMPT = """\
 You answer questions about U.S. health survey statistics using ONLY the verified NHIS
 concepts returned by the search_verified_okf tool.
@@ -126,13 +133,15 @@ def build_chat_agent(model: Any | None = None):
             from strands.models.anthropic import AnthropicModel
 
             model = AnthropicModel(
-                model_id=config.anthropic_model_id(), max_tokens=600
+                model_id=config.anthropic_model_id(), max_tokens=MAX_OUTPUT_TOKENS
             )
         else:
             from strands.models.bedrock import BedrockModel
 
             model = BedrockModel(
-                model_id=config.bedrock_model_id(), region_name=config.aws_region()
+                model_id=config.bedrock_model_id(),
+                region_name=config.aws_region(),
+                max_tokens=MAX_OUTPUT_TOKENS,
             )
 
     return Agent(model=model, system_prompt=OKF_ANALYST_PROMPT, tools=[_as_tool()])
@@ -194,6 +203,16 @@ def answer(
     fallback if the agent errors.
     """
     _load_dotenv()
+    # Input guardrail: reject over-long questions before any model call (cost cap on a
+    # public, unauthenticated endpoint).
+    if len(query) > MAX_QUESTION_CHARS:
+        return Answer(
+            text=(
+                f"Question too long (limit {MAX_QUESTION_CHARS} characters). Please ask a "
+                f"shorter, specific question.\n\n{SAFETY}"
+            ),
+            mode="rejected",
+        )
     retriever = retriever or Retriever.from_bundle()
     hits = retriever.search(query, k=k)
 
