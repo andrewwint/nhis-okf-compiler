@@ -115,10 +115,6 @@ over-precise interval is caught (design effect > 1):
 whole-sample/unweighted claim of 30.98% is caught (48.6 points off) and quarantined. Same
 verifier, new variables.
 
-> The `samplics` survey library was dropped — it is archived and crashes under Rosetta on
-> Apple Silicon — so the variance math is implemented directly in NumPy and validated by the
-> design-effect > 1 property.
-
 ## Grounded vs ungrounded
 
 Real responses from the deployed agent (`agentcore invoke` on Bedrock AgentCore) — it cites
