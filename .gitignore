@@ -18,3 +18,8 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# CDK / deploy synth artifacts
+deploy/infra/cdk.out/
+deploy/infra/cdk.context.json
+deploy/infra/node_modules/
