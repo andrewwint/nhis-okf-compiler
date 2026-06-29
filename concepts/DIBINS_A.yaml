@@ -1,0 +1,21 @@
+id: DIBINS_A
+variable: DIBINS_A
+label: "Currently takes insulin (among adults with diagnosed diabetes)"
+analytical_universe: "DIBEV_A == 1"
+claim:
+  statistic: "Weighted % currently taking insulin among U.S. adults with diagnosed diabetes, 2023"
+  method:
+    universe_expr: "DIBEV_A == 1"
+    weighted: true
+  value_pct: 31.96
+  tolerance_pct: 0.5
+links: [DIBEV_A, DIBPILL_A]
+prose: |
+  DIBINS_A records whether an adult currently takes insulin. The survey only asks it of
+  adults who report ever having diabetes ([[DIBEV_A]] == 1) or prediabetes ([[PREDIB_A]]
+  == 1) — it is a skip-pattern item, not asked of everyone.
+
+  The headline claim is insulin use **among people with diagnosed diabetes**, so the
+  denominator is DIBEV_A == 1, survey-weighted. Two denominators are wrong here: the whole
+  sample (most adults were never asked) and the full question universe (which dilutes the
+  rate with prediabetics who rarely use insulin).

@@ -1,0 +1,48 @@
+# Tasks: build the end-to-end NHIS-OKF product
+
+Each task keeps the non-negotiables: verification executes (never lints), weights are
+mandatory, safety scope holds. Implement and verify one slice at a time.
+
+## 1. Diabetes module coverage
+- [ ] 1.1 Add remaining diabetes variables to `registry.py` (DIBTYPE_A, DIBA1CLAST_A, DIBPILL_A as analytical, DIBAGETC_A as a distribution) with empirically-confirmed universes
+- [ ] 1.2 Author concepts + a seeded defect per new analytical variable
+- [ ] 1.3 `nhis verify` + `nhis compile` green; defects quarantined
+
+## 2. Continuous + distributional statistics
+- [ ] 2.1 Extend `analysis.py` with weighted mean and weighted quantiles
+- [ ] 2.2 Extend `verify.py` to check mean/quantile claims (not just prevalence)
+- [ ] 2.3 Tests: age-at-diagnosis weighted mean verified; a wrong mean is caught
+
+## 3. Design-based variance
+- [ ] 3.1 Add Taylor-linearization SEs/CIs using PSTRAT/PPSU
+- [ ] 3.2 Carry CI into the OKF frontmatter and the answer text
+- [ ] 3.3 Tests: CI computed; a claim whose point estimate is right but implausibly precise is flagged
+
+## 4. Multi-year + the redesign-rename defect
+- [ ] 4.1 `nhis fetch` supports a year argument; load NHIS 2018 + a post-redesign year
+- [ ] 4.2 Add the DIBEV → DIBEV_A rename map to the registry
+- [ ] 4.3 Implement the cross-year trend check; seed a defect that joins across the rename naively
+- [ ] 4.4 Verify the broken-trend defect is caught and quarantined
+
+## 5. Codebook ingestion (discovery)
+- [ ] 5.1 `ingest_codebook.py`: parse NHIS layout/dictionary files into draft concepts
+- [ ] 5.2 Draft concepts still pass through verification before entering the bundle
+- [ ] 5.3 Tests: a parsed concept with an unconfirmed universe is held until verified
+
+## 6. Second condition (hypertension)
+- [ ] 6.1 Add hypertension variables + universes; author concepts + seeded defect
+- [ ] 6.2 Confirm the pattern generalizes with no engine changes
+
+## 7. Hardened generative answering
+- [ ] 7.1 Promote generative mode: grounded-only, refuse when the bundle lacks the answer
+- [ ] 7.2 Guard: generated answers can cite only verified concept ids; no invented numbers
+- [ ] 7.3 Tests (mockable without a key): refusal path; citation-only guard
+
+## 8. Eval + packaging
+- [ ] 8.1 `evals/`: a seeded-defect set measuring catch-rate per defect class
+- [ ] 8.2 Reproducible pipeline doc; CI runs verify + tests
+- [ ] 8.3 Record results as a build-then-seed fixture for the review-discipline-eval study
+
+## 9. Safety surface
+- [ ] 9.1 Not-medical-advice framing first-class in every answer + any UI
+- [ ] 9.2 Document the aggregate-only data boundary in README and product copy

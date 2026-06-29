@@ -1,0 +1,41 @@
+---
+id: DIBEV_A
+type: analytical_concept
+label: "Ever told you had diabetes"
+variable: DIBEV_A
+question_universe: "All sample adults."
+weight: WTFA_A
+source: "NHIS 2023 Sample Adult public-use file (adult23.csv)"
+statistic: "Weighted prevalence of diagnosed diabetes among U.S. adults, 2023"
+value_pct: 9.8
+verification:
+  verdict: PASS
+  method: execution-grounded
+  correct_pct: 9.8
+  claimed_pct: 9.8
+  delta_pp: 0.0
+  detail: "9.80% (weighted by WTFA_A; universe: all sample adults; n=29489 unweighted)"
+  verified_at: 2026-06-29T03:06:23Z
+links: [DIBINS_A, DIBAGETC_A, PREDIB_A]
+---
+
+# Ever told you had diabetes
+
+DIBEV_A records whether a sample adult was ever told by a doctor or other health
+professional that they had diabetes. "Diagnosed diabetes" is DIBEV_A == 1. It excludes
+borderline/prediabetes (see [[PREDIB_A]]) and gestational-only diabetes (GESDIB_A).
+
+The population estimate must be survey-weighted (WTFA_A); the unweighted sample share
+does not estimate the U.S. adult population.
+
+## Verified statistic
+
+**Weighted prevalence of diagnosed diabetes among U.S. adults, 2023: 9.8%**
+
+- Basis: 9.80% (weighted by WTFA_A; universe: all sample adults; n=29489 unweighted)
+- Verification: executed against NHIS 2023 Sample Adult public-use file (adult23.csv); verdict **PASS**.
+
+## Related
+- [DIBINS_A](./DIBINS_A.md)
+- [DIBAGETC_A](./DIBAGETC_A.md)
+- [PREDIB_A](./PREDIB_A.md)

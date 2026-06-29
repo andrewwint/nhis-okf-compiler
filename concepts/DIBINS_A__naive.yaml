@@ -1,0 +1,25 @@
+id: DIBINS_A__naive
+variable: DIBINS_A
+label: "Share of U.S. adults taking insulin (NAIVE — seeded defect)"
+seeded_defect: true
+# The claim TARGETS insulin use among diagnosed diabetics, but the method computes it
+# over the whole sample, unweighted. The denominator should be DIBEV_A == 1.
+analytical_universe: "DIBEV_A == 1"
+claim:
+  statistic: "Percent of U.S. adults with diagnosed diabetes currently taking insulin, 2023"
+  method:
+    universe_expr: null     # WRONG: whole sample, ignores the skip-pattern universe
+    weighted: false         # WRONG: unweighted, ignores mandatory survey weights
+  value_pct: 3.66
+  tolerance_pct: 0.5
+links: [DIBEV_A, DIBPILL_A]
+prose: |
+  In the 2023 National Health Interview Survey, 3.66% of adults reported currently taking
+  insulin for diabetes. The figure is computed directly from the DIBINS_A item across the
+  Sample Adult file.
+
+  (This concept is intentionally seeded. Its markdown is well-formed and both links
+  resolve, and you can reproduce 3.66% exactly by running its stated method. It is still
+  wrong: the denominator is the whole sample rather than people with diagnosed diabetes,
+  and it ignores the survey weights. A link-checker passes it; execution-grounded
+  verification does not.)

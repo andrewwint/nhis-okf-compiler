@@ -1,0 +1,17 @@
+# Raw microdata (large public-use files; fetched via `nhis fetch`, not committed)
+data/
+*.csv
+*.zip
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Local secrets
+.env
+
+# Run working state (kept local, not committed product source — see Baton Run Artifacts)
+.agents/

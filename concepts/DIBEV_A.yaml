@@ -1,0 +1,19 @@
+id: DIBEV_A
+variable: DIBEV_A
+label: "Ever told you had diabetes"
+analytical_universe: null   # asked of all sample adults
+claim:
+  statistic: "Weighted prevalence of diagnosed diabetes among U.S. adults, 2023"
+  method:
+    universe_expr: null
+    weighted: true
+  value_pct: 9.80
+  tolerance_pct: 0.3
+links: [DIBINS_A, DIBAGETC_A, PREDIB_A]
+prose: |
+  DIBEV_A records whether a sample adult was ever told by a doctor or other health
+  professional that they had diabetes. "Diagnosed diabetes" is DIBEV_A == 1. It excludes
+  borderline/prediabetes (see [[PREDIB_A]]) and gestational-only diabetes (GESDIB_A).
+
+  The population estimate must be survey-weighted (WTFA_A); the unweighted sample share
+  does not estimate the U.S. adult population.
