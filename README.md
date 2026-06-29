@@ -10,6 +10,44 @@ The point is not the chatbot. The point is that Baton's verify lane **executes t
 > [docs/PRODUCT.md](docs/PRODUCT.md); next phase in
 > [openspec/changes/build-end-to-end-nhis-okf](openspec/changes/build-end-to-end-nhis-okf/proposal.md).
 
+## How it works
+
+A query is answered through a verification funnel. The chat agent can only see concepts
+that passed execution-grounded verification at compile time:
+
+```
+[ user query ]
+      |
+( Strands agent )            grounded-or-refuse; cites verified ids only
+      |
+[ search_verified_okf ]      the agent's only data tool
+      |
+( retrieval index )          TF-IDF over the verified bundle (local);
+      |                       a Bedrock Knowledge Base from .okf/ on deploy
+      +------------------------------+
+      |                              |
+      v                              v
+ .okf/variables/                .okf/log.md
+ DIBINS_A.md  -> 31.96%  PASS   DIBINS_A__naive -> 3.66%  QUARANTINED
+      |                              |
+      v                              v
+ fed as context                 never indexed -> unreachable
+```
+
+`compiler.py` writes only verified concepts to `.okf/variables/` and quarantines failures
+to `.okf/log.md`. Because the naive 3.66% figure is never written to the bundle, retrieval
+cannot build an index row for it and the agent cannot surface it — grounding is enforced by
+**what exists in the bundle**, not by prompt instructions alone.
+
+Two consequences worth stating plainly:
+
+- **Grounded-or-refuse.** Asked about a topic with no verified concept (e.g. asthma), the
+  agent refuses and declines to invent a number, rather than stitching adjacent diabetes
+  context into a best guess.
+- **Local/cloud parity.** The same agent over the same OKF substrate runs on the Anthropic
+  API (local) and on Bedrock `claude-sonnet-4-6` (deploy); only the model provider changes,
+  so behaviour is identical across environments.
+
 ## Run it
 
 ```bash

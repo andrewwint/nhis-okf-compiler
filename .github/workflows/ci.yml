@@ -1,0 +1,21 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install (with dev + agent extras)
+        run: pip install -e ".[dev,agent]"
+      - name: Fetch NHIS microdata (best-effort; data tests skip if unavailable)
+        run: nhis fetch || echo "fetch failed; data-dependent tests will skip"
+      - name: Run tests
+        run: pytest -q
