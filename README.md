@@ -83,6 +83,11 @@ python3 -m venv .venv && ./.venv/bin/pip install -e ".[dev]"
 ./.venv/bin/pytest -q         # 41 tests
 ```
 
+The raw inputs are the CDC NHIS Sample Adult **public-use CSV files** (`samadult.csv` for 2018,
+`adult23.csv` for 2023) — a few tens of MB each, fetched from the CDC by `nhis fetch` and not
+committed to the repo. Verification runs the documented analyses directly against these files;
+the compiled `.okf/` bundle is the only thing derived from them.
+
 Agent path: `pip install -e ".[agent]"`, drop `ANTHROPIC_API_KEY` in `.env`, then `nhis query`
 runs the Strands agent. Deploy notes in [deploy/README.md](deploy/README.md).
 
