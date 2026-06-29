@@ -116,6 +116,26 @@ Retrieval is a derived index over the verified bundle (TF-IDF today; embeddings 
 Bedrock Knowledge Base later). OKF stays the canonical substrate — only verified concepts
 are ever indexed, so a quarantined figure can never be served.
 
+## Sample queries (deployed on Bedrock AgentCore)
+
+Real `agentcore invoke` responses from the deployed agent — it cites the concept id, quotes
+the survey-weighted figure with its 95% CI, and refuses when the bundle has no answer. Full
+transcript in [docs/SAMPLE.md](docs/SAMPLE.md).
+
+**Refusal — off-bundle:**
+> Q: *what is the prevalence of asthma among US adults?*
+> A: I cannot answer this from the verified NHIS bundle — no verified concept for asthma.
+
+**Grounded, and honest about its limits:**
+> Q: *how does survey weighting change diabetes prevalence?*
+> A: 9.8% (95% CI 9.39–10.20) **[DIBEV_A]**, DEFF 1.41 … but I cannot give the
+> weighted-vs-unweighted difference — it is not a verified concept in the bundle.
+
+Asked the same weighting question, an ungrounded frontier model invented an unweighted 11.2%,
+race/age subgroup tables, and a false claim about the bundle. The grounded agent refused to
+state the unweighted number even though it is real — because it is not verified here. Grounding
+makes it *less* willing to guess.
+
 ## The shape
 
 - **Baton owns the process** — discovery, the gated loop, execution-grounded verification, the audit trail.

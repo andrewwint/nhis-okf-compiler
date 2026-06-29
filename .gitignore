@@ -5,10 +5,17 @@ data/
 
 # Python
 .venv/
+**/.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
 *.egg-info/
+
+# AgentCore CLI scaffold: keep generated/heavy/account-specific files out
+nhisokf/**/node_modules/
+nhisokf/**/cdk.out/
+nhisokf/**/dist/
+nhisokf/**/.cache/
 
 # Local secrets
 .env
