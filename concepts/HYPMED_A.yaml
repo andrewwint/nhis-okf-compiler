@@ -1,0 +1,17 @@
+id: HYPMED_A
+variable: HYPMED_A
+label: "Takes blood-pressure medication (among adults with hypertension)"
+analytical_universe: "HYPEV_A == 1"
+claim:
+  statistic: "Weighted % currently taking blood-pressure medication among U.S. adults with diagnosed hypertension, 2023"
+  method:
+    universe_expr: "HYPEV_A == 1"
+    weighted: true
+  value_pct: 79.62
+  tolerance_pct: 0.5
+links: [HYPEV_A]
+prose: |
+  HYPMED_A records whether an adult currently takes medication for high blood pressure. It is
+  a skip-pattern item, asked only of adults ever told they had hypertension ([[HYPEV_A]] ==
+  1). The headline claim is medication use **among people with diagnosed hypertension**, so
+  the denominator is HYPEV_A == 1, survey-weighted — not the whole sample.

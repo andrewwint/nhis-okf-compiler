@@ -1,0 +1,13 @@
+id: PREDIB_A
+variable: PREDIB_A
+label: "Ever told you had prediabetes"
+analytical_universe: null
+# Descriptive concept: it documents the variable and resolves the cross-links from
+# DIBEV_A and DIBINS_A (which reference prediabetes when explaining the insulin universe).
+links: [DIBEV_A]
+prose: |
+  PREDIB_A records whether a sample adult was ever told they had prediabetes or borderline
+  diabetes. It is a separate item from diagnosed diabetes ([[DIBEV_A]]): prediabetics are
+  not counted as having diagnosed diabetes. It matters for the insulin universe — the
+  insulin item ([[DIBINS_A]]) is asked of adults with diabetes **or** prediabetes, so the
+  clinically meaningful "among diagnosed diabetics" denominator is the narrower DIBEV_A == 1.

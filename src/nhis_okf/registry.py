@@ -130,6 +130,31 @@ REGISTRY: dict[str, Variable] = {
         affirmative_codes=(1,),
         related=("DIBEV_A",),
     ),
+    # --- Hypertension (a second condition; same engine, no changes) ----------------
+    "HYPEV_A": Variable(
+        name="HYPEV_A",
+        label="Ever told you had high blood pressure",
+        universe_expr=None,  # asked of all sample adults
+        universe_text="All sample adults.",
+        valid_codes=(1, 2),
+        affirmative_codes=(1,),
+        notes="'Diagnosed hypertension' = HYPEV_A == 1.",
+        related=("HYPMED_A",),
+    ),
+    "HYPMED_A": Variable(
+        name="HYPMED_A",
+        label="Currently takes blood-pressure medication",
+        # Clean skip-pattern: asked only of adults ever told they had hypertension.
+        universe_expr="HYPEV_A == 1",
+        universe_text="Adults ever told they had high blood pressure (HYPEV_A == 1).",
+        valid_codes=(1, 2),
+        affirmative_codes=(1,),
+        notes=(
+            "Asked only of HYPEV_A == 1. A whole-sample rate is badly deflated (most "
+            "adults were never asked); the claim is among adults with hypertension."
+        ),
+        related=("HYPEV_A",),
+    ),
 }
 
 
@@ -176,4 +201,5 @@ YEAR_CSV_ZIP: dict[int, str] = {
 ANALYTICAL_UNIVERSES: dict[str, str] = {
     "DIBINS_A__among_diagnosed": "DIBEV_A == 1",
     "DIBPILL_A__among_diagnosed": "DIBEV_A == 1",
+    "HYPMED_A__among_diagnosed": "HYPEV_A == 1",
 }

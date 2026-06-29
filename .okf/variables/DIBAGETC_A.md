@@ -4,7 +4,7 @@ title: "Age first told had diabetes (top-coded)"
 description: "DIBAGETC_A is the age at which an adult was first told they had diabetes, asked only of adults with diagnosed diabetes ([DIBEV_A](./DIBEV_A.md) == 1) and top-coded at 85."
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, DIBAGETC_A]
-timestamp: "2026-06-29T04:44:31Z"
+timestamp: "2026-06-29T11:45:35Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: DIBAGETC_A
 variable: DIBAGETC_A
@@ -15,7 +15,7 @@ source: "NHIS 2023 Sample Adult public-use file (adult23.csv)"
 verification:
   verdict: DESCRIPTIVE
   method: execution-grounded
-  verified_at: 2026-06-29T04:44:31Z
+  verified_at: 2026-06-29T11:45:35Z
 ---
 
 # Age first told had diabetes (top-coded)
