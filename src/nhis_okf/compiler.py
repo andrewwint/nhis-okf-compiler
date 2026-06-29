@@ -1,19 +1,27 @@
-"""Compile verified concepts into an Open Knowledge Format (OKF) bundle.
+"""Compile verified concepts into an Open Knowledge Format (OKF v0.1) bundle.
 
-The bundle is verified *by construction*: only concepts that pass execution-grounded
-verification are written to `.okf/variables/`. A concept that fails (the seeded defect)
-is quarantined — it never enters the trusted knowledge base — and its rejection is
-recorded in `.okf/log.md` with the numbers, so the audit trail shows what was caught and
-why. That is the difference between this bundle and a passive RAG over the raw codebook.
+OKF v0.1 (Google Cloud, mid-2026) is a one-page, vendor-neutral spec: a bundle is a
+directory of "concept" markdown files, each a YAML frontmatter block (only `type` is
+required; `title`/`description`/`resource`/`tags`/`timestamp` recommended; unknown keys
+tolerated) plus a markdown body, with relationships expressed as standard markdown links
+and two reserved files, `index.md` (progressive navigation) and `log.md` (audit history).
+
+This compiler emits a compliant bundle, and it is verified *by construction*: only concepts
+that pass execution-grounded verification are written to `variables/`. A failing concept
+(the seeded defect) is quarantined — it never enters the bundle — and its rejection is
+recorded in `log.md` with the numbers. That is the difference between this bundle and a
+passive RAG over the raw codebook.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 from . import registry
 from .concepts import Concept, load_all
@@ -24,6 +32,8 @@ OKF_DIR = REPO_ROOT / ".okf"
 VARIABLES_DIR = OKF_DIR / "variables"
 LOG_PATH = OKF_DIR / "log.md"
 SOURCE = "NHIS 2023 Sample Adult public-use file (adult23.csv)"
+RESOURCE = "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
+RESERVED = {"index.md", "log.md"}
 
 
 @dataclass
@@ -43,17 +53,49 @@ class CompileReport:
         return True
 
 
+# --- helpers --------------------------------------------------------------------------
+
+def _description(concept: Concept) -> str:
+    if concept.is_analytical and concept.statistic:
+        text = concept.statistic
+    else:
+        # First sentence of the prose for descriptive concepts.
+        first = concept.prose.strip().split(". ")[0].strip()
+        text = (first.rstrip(".") + ".") if first else concept.label
+    # Single line, links resolved to markdown, quote-safe for the YAML scalar.
+    text = _wikilinks_to_markdown(" ".join(text.split()))
+    return text.replace('"', "'")
+
+
+def _tags(concept: Concept) -> list[str]:
+    tags = ["nhis-2023", "diabetes", concept.variable]
+    if concept.is_analytical:
+        tags.append("prevalence")
+    return tags
+
+
+def _wikilinks_to_markdown(text: str) -> str:
+    """Convert `[[ID]]` prose wikilinks to spec-standard relative markdown links."""
+    return re.sub(r"\[\[([A-Za-z0-9_]+)\]\]", r"[\1](./\1.md)", text)
+
+
 def _yaml_list(items) -> str:
     return "[" + ", ".join(items) + "]" if items else "[]"
 
 
 def _frontmatter(concept: Concept, r: VerifyResult, ts: str) -> str:
     var = registry.get(concept.variable)
+    # Recommended OKF fields first; `type` is the only required one.
     lines = [
         "---",
+        "type: variable_definition",
+        f'title: "{concept.label}"',
+        f'description: "{_description(concept)}"',
+        f'resource: "{RESOURCE}"',
+        f"tags: {_yaml_list(_tags(concept))}",
+        f'timestamp: "{ts}"',
+        "# extension keys (OKF consumers tolerate unknown fields)",
         f"id: {concept.id}",
-        f"type: {'variable_definition' if not concept.is_analytical else 'analytical_concept'}",
-        f'label: "{concept.label}"',
         f"variable: {concept.variable}",
         f'question_universe: "{var.universe_text}"',
     ]
@@ -62,10 +104,7 @@ def _frontmatter(concept: Concept, r: VerifyResult, ts: str) -> str:
     lines.append(f"weight: {var.weight}")
     lines.append(f'source: "{SOURCE}"')
     if concept.is_analytical:
-        lines += [
-            f'statistic: "{concept.statistic}"',
-            f"value_pct: {r.correct_pct}",
-        ]
+        lines += [f'statistic: "{concept.statistic}"', f"value_pct: {r.correct_pct}"]
     lines += [
         "verification:",
         f"  verdict: {r.verdict}",
@@ -76,18 +115,14 @@ def _frontmatter(concept: Concept, r: VerifyResult, ts: str) -> str:
             f"  correct_pct: {r.correct_pct}",
             f"  claimed_pct: {r.claimed_pct}",
             f"  delta_pp: {r.delta_pp}",
-            f"  detail: \"{r.correct_detail}\"",
+            f'  detail: "{r.correct_detail}"',
         ]
-    lines += [
-        f"  verified_at: {ts}",
-        f"links: {_yaml_list(concept.links)}",
-        "---",
-    ]
+    lines += [f"  verified_at: {ts}", "---"]
     return "\n".join(lines)
 
 
 def _body(concept: Concept, r: VerifyResult) -> str:
-    parts = [f"# {concept.label}", "", concept.prose, ""]
+    parts = [f"# {concept.label}", "", _wikilinks_to_markdown(concept.prose), ""]
     if concept.is_analytical:
         parts += [
             "## Verified statistic",
@@ -109,21 +144,43 @@ def render_concept(concept: Concept, r: VerifyResult, ts: str) -> str:
     return _frontmatter(concept, r, ts) + "\n\n" + _body(concept, r)
 
 
-def _write_log(report_results: list[VerifyResult], ts: str, log_path: Path = LOG_PATH) -> None:
+def _render_index(written: list[Concept], ts: str) -> str:
+    lines = [
+        "---",
+        "type: index",
+        'title: "NHIS 2023 diabetes — verified OKF bundle"',
+        'description: "Execution-verified NHIS 2023 diabetes concepts; progressive entry point."',
+        f'timestamp: "{ts}"',
+        "---",
+        "",
+        "# NHIS 2023 diabetes — verified OKF bundle",
+        "",
+        "Concepts below passed execution-grounded verification (survey-weighted, "
+        "universe-correct). See [log.md](log.md) for the full audit history, including "
+        "any quarantined concepts.",
+        "",
+    ]
+    for c in written:
+        lines.append(f"- [variables/{c.id}](variables/{c.id}.md) — {_description(c)}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _write_log(results: list[VerifyResult], ts: str, log_path: Path = LOG_PATH) -> None:
     lines = [
         "# OKF audit log",
         "",
         f"Compiled from {SOURCE}.",
         f"Last run: {ts}",
         "",
-        "Every concept is verified by *executing* its analysis against the real",
-        "microdata with proper survey weights — not by checking links. Quarantined",
-        "concepts failed that check and were kept out of the trusted bundle.",
+        "Every concept is verified by *executing* its analysis against the real microdata",
+        "with proper survey weights — not by checking links. Quarantined concepts failed",
+        "that check and were kept out of the trusted bundle.",
         "",
         "| concept | verdict | claimed | correct | delta (pp) | note |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
-    for r in report_results:
+    for r in results:
         claimed = "—" if r.claimed_pct is None else f"{r.claimed_pct}"
         correct = "—" if r.correct_pct is None else f"{r.correct_pct}"
         delta = "—" if r.delta_pp is None else f"{r.delta_pp}"
@@ -148,20 +205,21 @@ def compile_bundle(
     out_dir: Path = VARIABLES_DIR,
     log_path: Path = LOG_PATH,
 ) -> CompileReport:
-    """Compile to `out_dir`. Defaults to the repo bundle; tests pass a temp dir so
-    running the suite never dirties the committed `.okf/` artifact."""
+    """Compile to `out_dir` (the bundle's `variables/`). Reserved `index.md` and `log.md`
+    go in the bundle root (`out_dir.parent`). Tests pass a temp dir so running the suite
+    never dirties the committed `.okf/` artifact."""
     concept_list = concept_list or load_all()
     results = verify_all(df, concept_list)
     by_id = {c.id: c for c in concept_list}
 
     out_dir = Path(out_dir)
+    bundle_root = out_dir.parent
     out_dir.mkdir(parents=True, exist_ok=True)
-    # Start clean so quarantined concepts never linger from a previous run.
-    for old in out_dir.glob("*.md"):
+    for old in out_dir.glob("*.md"):  # start clean; no lingering quarantined concepts
         old.unlink()
 
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    written, quarantined = [], []
+    written, quarantined, written_concepts = [], [], []
     for r in results:
         concept = by_id[r.concept_id]
         if r.verdict == FAIL:
@@ -169,6 +227,45 @@ def compile_bundle(
             continue
         (out_dir / f"{concept.id}.md").write_text(render_concept(concept, r, ts))
         written.append(concept.id)
+        written_concepts.append(concept)
 
+    (bundle_root / "index.md").write_text(_render_index(written_concepts, ts))
     _write_log(results, ts, log_path)
     return CompileReport(written=written, quarantined=quarantined, results=results)
+
+
+# --- OKF v0.1 conformance --------------------------------------------------------------
+
+def _split_frontmatter(raw: str) -> dict | None:
+    m = re.match(r"^---\n(.*?)\n---\n", raw, re.DOTALL)
+    if not m:
+        return None
+    try:
+        data = yaml.safe_load(m.group(1))
+    except yaml.YAMLError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def check_conformance(bundle_root: Path = OKF_DIR) -> tuple[bool, list[str]]:
+    """Check a bundle against the OKF v0.1 conformance matrix:
+    1. every non-reserved .md parses to valid YAML frontmatter,
+    2. `type` is present on every concept,
+    3. reserved files (index.md/log.md), if present, are structured.
+    """
+    bundle_root = Path(bundle_root)
+    issues: list[str] = []
+    concepts = [p for p in bundle_root.rglob("*.md") if p.name not in RESERVED]
+    if not concepts:
+        issues.append("no concept files found")
+    for p in concepts:
+        fm = _split_frontmatter(p.read_text())
+        rel = p.relative_to(bundle_root)
+        if fm is None:
+            issues.append(f"{rel}: missing or invalid YAML frontmatter")
+        elif "type" not in fm or not fm["type"]:
+            issues.append(f"{rel}: missing required 'type' field")
+    for reserved in ("index.md", "log.md"):
+        if not (bundle_root / reserved).exists():
+            issues.append(f"missing reserved {reserved}")
+    return (not issues, issues)

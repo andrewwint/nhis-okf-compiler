@@ -12,7 +12,7 @@ import argparse
 import sys
 
 from . import analysis, concepts as concepts_mod, verify as verify_mod
-from .compiler import compile_bundle
+from .compiler import compile_bundle, check_conformance, OKF_DIR
 
 # Columns the diabetes slice needs (keeps the 29MB load fast).
 SLICE_COLUMNS = [
@@ -66,6 +66,17 @@ def cmd_compile(_args) -> int:
     return 0
 
 
+def cmd_conformance(_args) -> int:
+    ok, issues = check_conformance(OKF_DIR)
+    if ok:
+        print("OKF v0.1 conformance: PASS")
+        return 0
+    print("OKF v0.1 conformance: FAIL")
+    for i in issues:
+        print(f"    - {i}")
+    return 1
+
+
 def cmd_query(args) -> int:
     from .chat import answer
 
@@ -82,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("fetch", help="download the NHIS 2023 public-use file")
     sub.add_parser("compile", help="verify concepts and emit the OKF bundle")
     sub.add_parser("verify", help="run execution-grounded verification")
+    sub.add_parser("conformance", help="check the bundle against the OKF v0.1 spec")
     q = sub.add_parser("query", help="ask a question grounded in the verified bundle")
     q.add_argument("question")
     return p
@@ -93,6 +105,7 @@ def main(argv=None) -> int:
         "fetch": cmd_fetch,
         "compile": cmd_compile,
         "verify": cmd_verify,
+        "conformance": cmd_conformance,
         "query": cmd_query,
     }[args.command](args)
 

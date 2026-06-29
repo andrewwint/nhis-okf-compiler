@@ -1,7 +1,12 @@
 ---
+type: variable_definition
+title: "Ever told you had diabetes"
+description: "Weighted prevalence of diagnosed diabetes among U.S. adults, 2023"
+resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
+tags: [nhis-2023, diabetes, DIBEV_A, prevalence]
+timestamp: "2026-06-29T04:12:24Z"
+# extension keys (OKF consumers tolerate unknown fields)
 id: DIBEV_A
-type: analytical_concept
-label: "Ever told you had diabetes"
 variable: DIBEV_A
 question_universe: "All sample adults."
 weight: WTFA_A
@@ -15,15 +20,14 @@ verification:
   claimed_pct: 9.8
   delta_pp: 0.0
   detail: "9.80% (weighted by WTFA_A; universe: all sample adults; n=29489 unweighted)"
-  verified_at: 2026-06-29T03:22:56Z
-links: [DIBINS_A, DIBAGETC_A, PREDIB_A]
+  verified_at: 2026-06-29T04:12:24Z
 ---
 
 # Ever told you had diabetes
 
 DIBEV_A records whether a sample adult was ever told by a doctor or other health
 professional that they had diabetes. "Diagnosed diabetes" is DIBEV_A == 1. It excludes
-borderline/prediabetes (see [[PREDIB_A]]) and gestational-only diabetes (GESDIB_A).
+borderline/prediabetes (see [PREDIB_A](./PREDIB_A.md)) and gestational-only diabetes (GESDIB_A).
 
 The population estimate must be survey-weighted (WTFA_A); the unweighted sample share
 does not estimate the U.S. adult population.

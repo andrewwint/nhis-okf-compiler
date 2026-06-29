@@ -1,11 +1,11 @@
 # OKF audit log
 
 Compiled from NHIS 2023 Sample Adult public-use file (adult23.csv).
-Last run: 2026-06-29T03:22:56Z
+Last run: 2026-06-29T04:12:24Z
 
-Every concept is verified by *executing* its analysis against the real
-microdata with proper survey weights — not by checking links. Quarantined
-concepts failed that check and were kept out of the trusted bundle.
+Every concept is verified by *executing* its analysis against the real microdata
+with proper survey weights — not by checking links. Quarantined concepts failed
+that check and were kept out of the trusted bundle.
 
 | concept | verdict | claimed | correct | delta (pp) | note |
 | --- | --- | --- | --- | --- | --- |
