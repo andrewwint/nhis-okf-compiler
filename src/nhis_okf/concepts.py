@@ -38,6 +38,13 @@ class Concept:
     method: ClaimMethod | None = None
     value_pct: float | None = None
     tolerance_pct: float = 0.5
+    # The kind of statistic the claim makes: "prevalence" (a % — default, backward
+    # compatible), "mean", or "quantile" (both in the variable's own units, not a %).
+    kind: str = "prevalence"
+    # For quantile claims, the target probability in [0, 1] (e.g. 0.5 for the median).
+    quantile_q: float | None = None
+    # The unit the claimed value is expressed in ("%" for prevalence; e.g. "years").
+    unit: str = "%"
     # Optional claimed 95% CI [low, high] in percentage points, for CI-precision checks.
     claimed_ci: tuple[float, float] | None = None
     links: list[str] = field(default_factory=list)
@@ -57,6 +64,9 @@ def _parse(doc: dict, source: Path | None = None) -> Concept:
     statistic = ""
     value_pct = None
     tolerance_pct = 0.5
+    kind = "prevalence"
+    quantile_q = None
+    unit = "%"
     if claim is not None:
         m = claim.get("method", {})
         method = ClaimMethod(
@@ -64,8 +74,15 @@ def _parse(doc: dict, source: Path | None = None) -> Concept:
             weighted=bool(m.get("weighted", True)),
         )
         statistic = claim.get("statistic", "")
-        value_pct = float(claim["value_pct"])
-        tolerance_pct = float(claim.get("tolerance_pct", 0.5))
+        kind = claim.get("kind", "prevalence")
+        quantile_q = claim.get("quantile_q")
+        quantile_q = float(quantile_q) if quantile_q is not None else None
+        # `value` is the units-aware key for mean/quantile; `value_pct` the legacy % key.
+        raw_value = claim.get("value", claim.get("value_pct"))
+        value_pct = float(raw_value)
+        unit = claim.get("unit", "%" if kind == "prevalence" else "")
+        # Tolerance is in the claim's units; `tolerance_pct` kept for backward compat.
+        tolerance_pct = float(claim.get("tolerance", claim.get("tolerance_pct", 0.5)))
     claimed_ci = None
     if claim is not None and claim.get("ci_95"):
         lo, hi = claim["ci_95"]
@@ -79,6 +96,9 @@ def _parse(doc: dict, source: Path | None = None) -> Concept:
         method=method,
         value_pct=value_pct,
         tolerance_pct=tolerance_pct,
+        kind=kind,
+        quantile_q=quantile_q,
+        unit=unit,
         claimed_ci=claimed_ci,
         links=list(doc.get("links", [])),
         prose=doc.get("prose", "").strip(),

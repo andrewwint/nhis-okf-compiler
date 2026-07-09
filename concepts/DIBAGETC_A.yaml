@@ -2,9 +2,19 @@ id: DIBAGETC_A
 variable: DIBAGETC_A
 label: "Age first told had diabetes (top-coded)"
 analytical_universe: "DIBEV_A == 1"
-# Descriptive concept: documented for the bundle, but it carries no headline prevalence
-# statistic to execute (it is a continuous, top-coded age, not a yes/no rate). The
-# verifier confirms its universe and code handling are documented correctly.
+# Analytical concept: a survey-weighted MEAN, not a yes/no prevalence. The value is in
+# years (not a percentage). The verifier recomputes it the registry-correct way — weighted
+# by WTFA_A, restricted to DIBEV_A == 1, with the non-substantive codes (96-99) dropped via
+# the registry valid_codes — and compares within tolerance in years.
+claim:
+  statistic: "Weighted mean age first told had diabetes among U.S. adults with diagnosed diabetes, 2023"
+  kind: mean
+  unit: years
+  method:
+    universe_expr: "DIBEV_A == 1"
+    weighted: true
+  value: 47.41
+  tolerance: 0.5
 links: [DIBEV_A]
 prose: |
   DIBAGETC_A is the age at which an adult was first told they had diabetes, asked only of
@@ -12,3 +22,7 @@ prose: |
   above are non-substantive (refused / not ascertained / don't know) and must be dropped
   before any age analysis. Any mean or distribution over this variable must be
   survey-weighted (WTFA_A) and restricted to the DIBEV_A == 1 universe.
+
+  The headline claim is the survey-weighted mean age at diagnosis among adults with
+  diagnosed diabetes. Dropping the 96-99 codes and applying the survey weights are both
+  required: skipping either shifts the number in a way execution catches.

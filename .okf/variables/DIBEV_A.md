@@ -4,7 +4,7 @@ title: "Ever told you had diabetes"
 description: "Weighted prevalence of diagnosed diabetes among U.S. adults, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, DIBEV_A, prevalence]
-timestamp: "2026-06-29T12:00:45Z"
+timestamp: "2026-07-09T23:24:49Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: DIBEV_A
 variable: DIBEV_A
@@ -24,7 +24,7 @@ verification:
   se_pp: 0.21
   deff: 1.41
   variance_method: taylor-linearization (design-based)
-  verified_at: 2026-06-29T12:00:45Z
+  verified_at: 2026-07-09T23:24:49Z
 ---
 
 # Ever told you had diabetes

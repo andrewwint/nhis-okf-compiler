@@ -1,0 +1,28 @@
+id: DIBAGETC_A__naive
+variable: DIBAGETC_A
+label: "Mean age at diabetes diagnosis (NAIVE — seeded defect)"
+seeded_defect: true
+# The claim TARGETS the mean age at diagnosis among diagnosed diabetics, but the method
+# computes it UNWEIGHTED. NHIS estimates require the survey weight (WTFA_A); the unweighted
+# sample mean (49.29) over-states the survey-weighted population mean (47.41) by ~1.9 years.
+analytical_universe: "DIBEV_A == 1"
+claim:
+  statistic: "Mean age first told had diabetes among U.S. adults with diagnosed diabetes, 2023"
+  kind: mean
+  unit: years
+  method:
+    universe_expr: "DIBEV_A == 1"
+    weighted: false          # WRONG: unweighted, ignores the mandatory survey weight
+  value: 49.29
+  tolerance: 0.5
+links: [DIBEV_A]
+prose: |
+  In the 2023 National Health Interview Survey, adults with diagnosed diabetes
+  ([[DIBEV_A]] == 1) were first told they had diabetes at an average age of 49.29 years.
+  The figure is the mean of the DIBAGETC_A item over that group.
+
+  (This concept is intentionally seeded. Its markdown is well-formed and its link resolves,
+  and you can reproduce 49.29 exactly by averaging DIBAGETC_A unweighted. It is still wrong:
+  it ignores the survey weights, so it estimates the sample, not the U.S. adult population.
+  A link-checker passes it; execution-grounded verification does not — the weighted mean is
+  47.41 years.)

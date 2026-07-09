@@ -48,15 +48,72 @@ class PrevalenceResult:
         )
 
 
-def load_microdata(csv_path: str | Path = DEFAULT_CSV, columns=None) -> pd.DataFrame:
-    """Load the NHIS Sample Adult CSV, optionally restricting to `columns`."""
+def parquet_twin(csv_path: str | Path) -> Path:
+    """The derived `.parquet` cache path that sits next to a data CSV."""
+    return Path(csv_path).with_suffix(".parquet")
+
+
+def table_columns(csv_path: str | Path) -> set[str]:
+    """Column names available in the twin (preferred) or the CSV, cheaply."""
     csv_path = Path(csv_path)
-    if not csv_path.exists():
+    twin = parquet_twin(csv_path)
+    if twin.exists():
+        import pyarrow.parquet as pq
+
+        return set(pq.ParquetFile(twin).schema_arrow.names)
+    return set(pd.read_csv(csv_path, nrows=1).columns)
+
+
+def load_table(csv_path: str | Path, columns=None) -> pd.DataFrame:
+    """Load a data table, preferring the parquet twin and falling back to the CSV.
+
+    Column projection is pushed down to whichever file is read. Requested columns are
+    intersected with the columns actually present, so a name absent from a given year's
+    file is silently skipped — matching the CSV `usecols` lambda's behavior and avoiding
+    the error `pd.read_parquet(columns=...)` raises on a missing column.
+    """
+    csv_path = Path(csv_path)
+    twin = parquet_twin(csv_path)
+    if twin.exists():
+        proj = None
+        if columns is not None:
+            available = table_columns(csv_path)
+            proj = [c for c in columns if c in available]
+        return pd.read_parquet(twin, columns=proj)
+    usecols = (lambda c: c in set(columns)) if columns else None
+    return pd.read_csv(csv_path, usecols=usecols, low_memory=False)
+
+
+def materialize_parquet(csv_path: str | Path, *, force: bool = False) -> Path:
+    """Write a `.parquet` twin next to a data CSV (idempotent).
+
+    CSV stays the fetched source of truth; parquet is a derived cache. The twin is
+    rebuilt only when missing, stale (older than the CSV), or `force`d.
+    """
+    csv_path = Path(csv_path)
+    twin = parquet_twin(csv_path)
+    if (
+        not force
+        and twin.exists()
+        and twin.stat().st_mtime >= csv_path.stat().st_mtime
+    ):
+        return twin
+    pd.read_csv(csv_path, low_memory=False).to_parquet(twin, index=False)
+    return twin
+
+
+def load_microdata(csv_path: str | Path = DEFAULT_CSV, columns=None) -> pd.DataFrame:
+    """Load the NHIS Sample Adult data, optionally restricting to `columns`.
+
+    Prefers the parquet twin when present and falls back to the CSV; both paths yield
+    identical estimates.
+    """
+    csv_path = Path(csv_path)
+    if not csv_path.exists() and not parquet_twin(csv_path).exists():
         raise FileNotFoundError(
             f"{csv_path} not found. Run `nhis fetch` to download the public-use file."
         )
-    usecols = (lambda c: c in set(columns)) if columns else None
-    return pd.read_csv(csv_path, usecols=usecols, low_memory=False)
+    return load_table(csv_path, columns)
 
 
 def _mask(df: pd.DataFrame, expr: str | None) -> pd.Series:
@@ -144,6 +201,166 @@ def correct_prevalence(
         valid_codes=var.valid_codes,
         weighted=True,
         weight_var=var.weight,
+    )
+
+
+# --- Continuous / distributional statistics --------------------------------------------
+#
+# Age-at-diagnosis and the like are not yes/no rates, so prevalence does not apply. The
+# survey-weighted mean and quantile follow the same explicit-knobs pattern as
+# `compute_prevalence`: weighting can be turned off and the substantive-code filter is
+# passed in, so a flawed method (unweighted, or non-substantive codes not dropped) stays
+# expressible and therefore catchable by the verifier.
+
+
+@dataclass
+class MeanResult:
+    """The outcome of one survey-weighted mean computation (units of the variable)."""
+
+    variable: str
+    universe_expr: str | None
+    weighted: bool
+    value: float
+    unweighted_n: int
+    denominator_weighted: float
+    weight_var: str | None
+
+    def summary(self) -> str:
+        basis = f"weighted by {self.weight_var}" if self.weighted else "UNWEIGHTED"
+        uni = self.universe_expr or "all sample adults"
+        return (
+            f"{self.value:.2f} ({basis}; universe: {uni}; "
+            f"n={self.unweighted_n} unweighted)"
+        )
+
+
+@dataclass
+class QuantileResult:
+    """The outcome of one survey-weighted quantile computation (units of the variable)."""
+
+    variable: str
+    universe_expr: str | None
+    q: float
+    weighted: bool
+    value: float
+    unweighted_n: int
+    denominator_weighted: float
+    weight_var: str | None
+
+    def summary(self) -> str:
+        basis = f"weighted by {self.weight_var}" if self.weighted else "UNWEIGHTED"
+        uni = self.universe_expr or "all sample adults"
+        return (
+            f"q{self.q:g}={self.value:.2f} ({basis}; universe: {uni}; "
+            f"n={self.unweighted_n} unweighted)"
+        )
+
+
+def _substantive(
+    df: pd.DataFrame, variable: str, universe_expr: str | None, valid_codes: tuple[int, ...]
+) -> pd.DataFrame:
+    """Rows in the universe whose response is a substantive (valid) value."""
+    return df[_mask(df, universe_expr) & df[variable].isin(valid_codes)]
+
+
+def weighted_mean(
+    df: pd.DataFrame,
+    variable: str,
+    *,
+    universe_expr: str | None,
+    valid_codes: tuple[int, ...],
+    weighted: bool = True,
+    weight_var: str = registry.SAMPLE_ADULT_WEIGHT,
+) -> MeanResult:
+    """Survey-weighted mean of `variable` over the substantive rows of a universe.
+
+    Non-substantive codes (e.g. DIBAGETC_A's 96-99) are excluded by `valid_codes`;
+    turning `weighted` off, or widening `valid_codes` to include 96-99, expresses the
+    two classic mistakes the verifier catches.
+    """
+    d = _substantive(df, variable, universe_expr, valid_codes)
+    y = d[variable].to_numpy(dtype=float)
+    if weighted:
+        w = d[weight_var].to_numpy(dtype=float)
+        denom_w = float(w.sum())
+        value = float((w * y).sum() / denom_w) if denom_w else 0.0
+    else:
+        denom_w = float(len(d))
+        value = float(y.mean()) if len(d) else 0.0
+    return MeanResult(
+        variable=variable,
+        universe_expr=universe_expr,
+        weighted=weighted,
+        value=value,
+        unweighted_n=len(d),
+        denominator_weighted=denom_w,
+        weight_var=weight_var if weighted else None,
+    )
+
+
+def weighted_quantile(
+    df: pd.DataFrame,
+    variable: str,
+    q: float,
+    *,
+    universe_expr: str | None,
+    valid_codes: tuple[int, ...],
+    weighted: bool = True,
+    weight_var: str = registry.SAMPLE_ADULT_WEIGHT,
+) -> QuantileResult:
+    """Survey-weighted `q`-quantile (q in [0, 1]) over the substantive rows of a universe."""
+    import numpy as np
+
+    d = _substantive(df, variable, universe_expr, valid_codes)
+    y = d[variable].to_numpy(dtype=float)
+    w = (
+        d[weight_var].to_numpy(dtype=float)
+        if weighted
+        else np.ones(len(d), dtype=float)
+    )
+    if len(d) == 0:
+        value = 0.0
+        denom_w = 0.0
+    else:
+        order = np.argsort(y)
+        y, w = y[order], w[order]
+        # Cumulative weight at the midpoint of each observation's mass, normalized to [0, 1].
+        cum = (np.cumsum(w) - 0.5 * w) / w.sum()
+        value = float(np.interp(q, cum, y))
+        denom_w = float(w.sum())
+    return QuantileResult(
+        variable=variable,
+        universe_expr=universe_expr,
+        q=q,
+        weighted=weighted,
+        value=value,
+        unweighted_n=len(d),
+        denominator_weighted=denom_w,
+        weight_var=weight_var if weighted else None,
+    )
+
+
+def correct_mean(
+    df: pd.DataFrame, variable: str, *, analytical_universe: str | None = None
+) -> MeanResult:
+    """Registry-correct weighted mean: true universe + mandatory weighting + valid codes."""
+    var = registry.get(variable)
+    universe = analytical_universe if analytical_universe is not None else var.universe_expr
+    return weighted_mean(
+        df, variable, universe_expr=universe,
+        valid_codes=var.valid_codes, weighted=True, weight_var=var.weight,
+    )
+
+
+def correct_quantile(
+    df: pd.DataFrame, variable: str, q: float, *, analytical_universe: str | None = None
+) -> QuantileResult:
+    """Registry-correct weighted quantile: true universe + mandatory weighting + valid codes."""
+    var = registry.get(variable)
+    universe = analytical_universe if analytical_universe is not None else var.universe_expr
+    return weighted_quantile(
+        df, variable, q, universe_expr=universe,
+        valid_codes=var.valid_codes, weighted=True, weight_var=var.weight,
     )
 
 
@@ -235,6 +452,225 @@ def correct_ci(
         affirmative_codes=var.affirmative_codes, valid_codes=var.valid_codes,
         weight_var=var.weight,
     )
+
+
+def _stratified_psu_variance(
+    strata: pd.Series, psu: pd.Series, z_lin, total_w: float
+) -> float:
+    """Stratified between-PSU variance of a linearized total, divided by Sum(w)^2.
+
+    The shared core of the Taylor-linearization variance for any ratio estimator
+    R = Sum(w*y)/Sum(w): the residual z_i = w_i (y_i - R) is summed to PSU totals within
+    strata, and singleton strata contribute no within-stratum variance.
+    """
+    psu_df = pd.DataFrame({"h": strata.to_numpy(), "a": psu.to_numpy(), "z": z_lin})
+    psu_tot = psu_df.groupby(["h", "a"], sort=False)["z"].sum().reset_index()
+    var_total = 0.0
+    for _, grp in psu_tot.groupby("h"):
+        nh = len(grp)
+        if nh < 2:
+            continue
+        zbar = grp["z"].mean()
+        var_total += nh / (nh - 1) * float(((grp["z"] - zbar) ** 2).sum())
+    return var_total / total_w ** 2
+
+
+@dataclass
+class MeanCI:
+    """A design-based (complex-survey) confidence interval for a weighted mean."""
+
+    estimate: float
+    se: float
+    lci: float
+    uci: float
+    n_psu: int
+    n_strata: int
+
+    def summary(self) -> str:
+        return (
+            f"{self.estimate:.2f} (95% CI {self.lci:.2f}-{self.uci:.2f}; "
+            f"design-based SE {self.se:.2f})"
+        )
+
+
+def design_based_mean_ci(
+    df: pd.DataFrame,
+    variable: str,
+    *,
+    universe_expr: str | None,
+    valid_codes: tuple[int, ...],
+    weight_var: str = registry.SAMPLE_ADULT_WEIGHT,
+    strata_var: str = registry.DESIGN_STRATUM,
+    psu_var: str = registry.DESIGN_PSU,
+    z: float = 1.96,
+) -> MeanCI:
+    """Taylor-linearization CI for a survey-weighted mean (the ratio Sum(w*y)/Sum(w))."""
+    import numpy as np
+
+    d = _substantive(df, variable, universe_expr, valid_codes)
+    y = d[variable].to_numpy(dtype=float)
+    w = d[weight_var].to_numpy(dtype=float)
+    total_w = w.sum()
+    R = float((w * y).sum() / total_w)
+    var_R = _stratified_psu_variance(d[strata_var], d[psu_var], w * (y - R), total_w)
+    se = float(np.sqrt(var_R))
+    psu = pd.DataFrame({"h": d[strata_var].to_numpy(), "a": d[psu_var].to_numpy()})
+    return MeanCI(
+        estimate=R, se=se, lci=R - z * se, uci=R + z * se,
+        n_psu=len(psu.drop_duplicates()), n_strata=int(d[strata_var].nunique()),
+    )
+
+
+def design_based_quantile_ci(
+    df: pd.DataFrame,
+    variable: str,
+    q: float,
+    *,
+    universe_expr: str | None,
+    valid_codes: tuple[int, ...],
+    weight_var: str = registry.SAMPLE_ADULT_WEIGHT,
+    strata_var: str = registry.DESIGN_STRATUM,
+    psu_var: str = registry.DESIGN_PSU,
+    z: float = 1.96,
+) -> MeanCI:
+    """Woodruff design-based CI for a weighted quantile.
+
+    Build the design-based SE of the estimated CDF value at the point estimate, form the
+    proportion interval [q - z*se, q + z*se], and map its bounds back through the weighted
+    empirical CDF to the variable's units. Reported in a `MeanCI` (units of the variable).
+    """
+    import numpy as np
+
+    point = weighted_quantile(
+        df, variable, q, universe_expr=universe_expr, valid_codes=valid_codes,
+        weighted=True, weight_var=weight_var,
+    ).value
+    d = _substantive(df, variable, universe_expr, valid_codes)
+    y = d[variable].to_numpy(dtype=float)
+    w = d[weight_var].to_numpy(dtype=float)
+    total_w = w.sum()
+    ind = (y <= point).astype(float)  # indicator whose weighted mean is F(point) ~= q
+    P = float((w * ind).sum() / total_w)
+    var_P = _stratified_psu_variance(d[strata_var], d[psu_var], w * (ind - P), total_w)
+    se_p = float(np.sqrt(var_P))
+    order = np.argsort(y)
+    ys, ws = y[order], w[order]
+    cum = (np.cumsum(ws) - 0.5 * ws) / ws.sum()
+    lci = float(np.interp(max(0.0, q - z * se_p), cum, ys))
+    uci = float(np.interp(min(1.0, q + z * se_p), cum, ys))
+    psu = pd.DataFrame({"h": d[strata_var].to_numpy(), "a": d[psu_var].to_numpy()})
+    return MeanCI(
+        estimate=point, se=se_p, lci=lci, uci=uci,
+        n_psu=len(psu.drop_duplicates()), n_strata=int(d[strata_var].nunique()),
+    )
+
+
+@dataclass
+class SubpopulationResult:
+    """A survey-weighted aggregate for an arbitrary subpopulation, with its design CI.
+
+    This is the *only* thing the subpopulation query returns — a scalar estimate and its
+    interval, never a set of individual rows. That is the aggregate-only safety invariant.
+    """
+
+    variable: str
+    universe_expr: str | None
+    stat: str  # "prevalence" | "mean" | "quantile"
+    unit: str  # "%" for prevalence, "" for units-of-variable mean/quantile
+    estimate: float
+    lci: float
+    uci: float
+    se: float
+    unweighted_n: int
+    denominator_weighted: float
+    weight_var: str
+    q: float | None = None
+
+    def summary(self) -> str:
+        uni = self.universe_expr or "all sample adults"
+        label = self.stat if self.q is None else f"{self.stat} (q={self.q:g})"
+        return (
+            f"{self.variable} {label}: {self.estimate:.2f}{self.unit} "
+            f"(95% CI {self.lci:.2f}-{self.uci:.2f}{self.unit}; design-based SE "
+            f"{self.se:.2f}; weighted by {self.weight_var}; universe: {uni}; "
+            f"n={self.unweighted_n} unweighted, denominator "
+            f"{self.denominator_weighted:,.0f} weighted)"
+        )
+
+
+def subpopulation_stat(
+    df: pd.DataFrame,
+    variable: str,
+    *,
+    universe_expr: str | None,
+    stat: str = "prevalence",
+    q: float = 0.5,
+) -> SubpopulationResult:
+    """Survey-weighted aggregate + design-based CI for a subpopulation.
+
+    `universe_expr` is an arbitrary pandas row filter (the *means* of subsetting); the
+    return is always a single aggregate object (the *output*). There is deliberately no
+    code path that returns the underlying rows — the safety scope forbids exposing
+    individual records. Weighting is mandatory and uses the registry's weight/design vars.
+    """
+    var = registry.get(variable)
+    # Empty subpopulation: refuse rather than report a fabricated 0.0 with a NaN interval.
+    # An arbitrary universe that matches no substantive rows has no estimate to report, and
+    # emitting "0.0" would be exactly the confidently-wrong number this project exists to
+    # prevent — on the one surface (ad-hoc query) that bypasses the concept-verification gate.
+    if _substantive(df, variable, universe_expr, var.valid_codes).empty:
+        raise ValueError(
+            f"empty subpopulation: universe {universe_expr!r} matches no substantive "
+            f"{variable} rows — no weighted estimate is defined"
+        )
+    if stat == "prevalence":
+        pr = compute_prevalence(
+            df, variable, universe_expr=universe_expr,
+            affirmative_codes=var.affirmative_codes, valid_codes=var.valid_codes,
+            weighted=True, weight_var=var.weight,
+        )
+        ci = design_based_ci(
+            df, variable, universe_expr=universe_expr,
+            affirmative_codes=var.affirmative_codes, valid_codes=var.valid_codes,
+            weight_var=var.weight,
+        )
+        return SubpopulationResult(
+            variable=variable, universe_expr=universe_expr, stat=stat, unit="%",
+            estimate=pr.value_pct, lci=ci.lci_pct, uci=ci.uci_pct, se=ci.se_pp,
+            unweighted_n=pr.denominator_unweighted,
+            denominator_weighted=pr.denominator_weighted, weight_var=var.weight,
+        )
+    if stat == "mean":
+        mr = weighted_mean(
+            df, variable, universe_expr=universe_expr,
+            valid_codes=var.valid_codes, weighted=True, weight_var=var.weight,
+        )
+        ci = design_based_mean_ci(
+            df, variable, universe_expr=universe_expr,
+            valid_codes=var.valid_codes, weight_var=var.weight,
+        )
+        return SubpopulationResult(
+            variable=variable, universe_expr=universe_expr, stat=stat, unit="",
+            estimate=mr.value, lci=ci.lci, uci=ci.uci, se=ci.se,
+            unweighted_n=mr.unweighted_n,
+            denominator_weighted=mr.denominator_weighted, weight_var=var.weight,
+        )
+    if stat == "quantile":
+        qr = weighted_quantile(
+            df, variable, q, universe_expr=universe_expr,
+            valid_codes=var.valid_codes, weighted=True, weight_var=var.weight,
+        )
+        ci = design_based_quantile_ci(
+            df, variable, q, universe_expr=universe_expr,
+            valid_codes=var.valid_codes, weight_var=var.weight,
+        )
+        return SubpopulationResult(
+            variable=variable, universe_expr=universe_expr, stat=stat, unit="",
+            estimate=qr.value, lci=ci.lci, uci=ci.uci, se=ci.se,
+            unweighted_n=qr.unweighted_n,
+            denominator_weighted=qr.denominator_weighted, weight_var=var.weight, q=q,
+        )
+    raise ValueError(f"unknown stat kind: {stat!r} (use prevalence|mean|quantile)")
 
 
 def fetch_microdata(dest_dir: str | Path = DATA_DIR) -> Path:

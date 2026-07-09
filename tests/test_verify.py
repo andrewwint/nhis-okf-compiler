@@ -34,7 +34,19 @@ def test_diagnosis_names_both_errors(df, concepts):
     assert "universe" in joined
 
 
-def test_descriptive_concept_has_no_statistic(df, concepts):
+def test_age_at_diagnosis_mean_verified(df, concepts):
+    """DIBAGETC_A is a survey-weighted MEAN concept (years, not a %) — it must pass."""
     r = _by_id(V.verify_all(df, concepts))["DIBAGETC_A"]
-    assert r.verdict == V.DESCRIPTIVE
-    assert r.claimed_pct is None
+    assert r.verdict == V.PASS
+    assert r.kind == "mean"
+    assert r.unit == "years"
+    assert abs(r.correct_pct - 47.41) < 0.5
+
+
+def test_wrong_mean_is_caught_while_lint_passes(df, concepts):
+    """An unweighted mean is structurally clean but statistically wrong — execution catches it."""
+    r = _by_id(V.verify_all(df, concepts))["DIBAGETC_A__naive"]
+    assert r.lint.ok is True
+    assert r.verdict == V.FAIL
+    assert r.caught is True
+    assert "unweighted" in " ".join(r.diagnosis).lower()
