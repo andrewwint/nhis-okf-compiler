@@ -22,7 +22,7 @@ import pandas as pd
 import yaml
 
 from . import registry
-from .analysis import DATA_DIR, compute_prevalence, PrevalenceResult
+from .analysis import DATA_DIR, compute_prevalence, load_table, table_columns, PrevalenceResult
 
 TRENDS_DIR = Path(__file__).resolve().parents[2] / "concepts" / "trends"
 
@@ -54,7 +54,7 @@ def fetch_year(year: int) -> Path:
 
 
 def _columns_for_year(year: int) -> set[str]:
-    return set(pd.read_csv(year_csv(year), nrows=1).columns)
+    return table_columns(year_csv(year))
 
 
 # --- correct (rename-aware) and naive (single-name) trends ----------------------------
@@ -68,8 +68,7 @@ def correct_trend(canonical: str, years: list[int]) -> dict[int, PrevalenceResul
     out: dict[int, PrevalenceResult] = {}
     for y in years:
         var, weight, valid, affirmative = _resolve(canonical, y)
-        df = pd.read_csv(year_csv(y), usecols=lambda c, v=var, w=weight: c in (v, w),
-                         low_memory=False)
+        df = load_table(year_csv(y), columns=[var, weight])
         out[y] = compute_prevalence(
             df, var, universe_expr=None, affirmative_codes=affirmative,
             valid_codes=valid, weighted=True, weight_var=weight,

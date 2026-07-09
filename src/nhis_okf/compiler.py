@@ -75,7 +75,7 @@ def _description(concept: Concept) -> str:
 def _tags(concept: Concept) -> list[str]:
     tags = ["nhis-2023", "diabetes", concept.variable]
     if concept.is_analytical:
-        tags.append("prevalence")
+        tags.append(concept.kind)
     return tags
 
 
@@ -109,7 +109,15 @@ def _frontmatter(concept: Concept, r: VerifyResult, ts: str) -> str:
     lines.append(f"weight: {var.weight}")
     lines.append(f'source: "{SOURCE}"')
     if concept.is_analytical:
-        lines += [f'statistic: "{concept.statistic}"', f"value_pct: {r.correct_pct}"]
+        lines.append(f'statistic: "{concept.statistic}"')
+        if concept.kind == "prevalence":
+            lines.append(f"value_pct: {r.correct_pct}")
+        else:
+            # Units-aware value for mean/quantile (years, not a percentage).
+            lines += [f"kind: {concept.kind}", f"value: {r.correct_pct}",
+                      f'unit: "{concept.unit}"']
+            if concept.quantile_q is not None:
+                lines.append(f"quantile_q: {concept.quantile_q}")
     lines += [
         "verification:",
         f"  verdict: {r.verdict}",
@@ -136,10 +144,14 @@ def _frontmatter(concept: Concept, r: VerifyResult, ts: str) -> str:
 def _body(concept: Concept, r: VerifyResult) -> str:
     parts = [f"# {concept.label}", "", _wikilinks_to_markdown(concept.prose), ""]
     if concept.is_analytical:
+        if concept.kind == "prevalence":
+            value_str = f"{r.correct_pct}%"
+        else:
+            value_str = f"{r.correct_pct} {concept.unit}".strip()
         parts += [
             "## Verified statistic",
             "",
-            f"**{concept.statistic}: {r.correct_pct}%**",
+            f"**{concept.statistic}: {value_str}**",
             "",
         ]
         if r.ci is not None:
