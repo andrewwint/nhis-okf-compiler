@@ -21,18 +21,35 @@ end-user surface. Sections 1–4 are real agent responses.
 ## 1. A verified figure
 
 ```
-$ agentcore invoke '{"question": "what share of adults with diabetes take insulin?"}'
+$ agentcore invoke --prompt "What share of U.S. adults with diagnosed diabetes take insulin?"
 ```
-> Based on verified NHIS data, **31.96%** (95% CI: 30.08–33.84%) of U.S. adults with
-> diagnosed diabetes currently take insulin **[DIBINS_A]**. Survey-weighted estimate, 2023.
+> Based on the verified OKF bundle, here is the finding:
+>
+> **Approximately 32.0% of U.S. adults with diagnosed diabetes currently take insulin.**
+> Specifically, the survey-weighted estimate is **31.96%** (95% CI: 30.08%–33.84%) **[DIBINS_A]**.
+> - **Universe/denominator:** U.S. adults ever told by a doctor they have diabetes, survey-weighted.
+> - **Survey year:** 2023 NHIS. **Design-based SE** 0.96pp, **DEFF** 1.39.
+>
+> *This is a public, aggregate survey statistic and is not medical advice.*
+
+*(Real `mode: generative` response — Bedrock AgentCore, Claude Sonnet over the verified bundle.
+The not-medical-advice / aggregate-only safety framing is appended to every answer.)*
 
 ## 2. Refusal — no concept in the bundle
 
 ```
-$ agentcore invoke '{"question": "what is the prevalence of asthma among US adults?"}'
+$ agentcore invoke --prompt "What is the prevalence of asthma among US adults?"
 ```
-> I cannot answer this question from the verified NHIS bundle. The search did not return any
-> verified concepts related to asthma prevalence among US adults.
+> Unfortunately, **I cannot answer this question from the verified bundle.** The verified OKF
+> bundle does not contain a precomputed asthma prevalence concept for U.S. adults, and none of
+> my tools returned a relevant match. Providing a figure from outside knowledge would violate
+> my hard rules against inventing or estimating numbers.
+>
+> For authoritative asthma prevalence statistics, I'd recommend consulting CDC's NCHS and CDC
+> Asthma Data & Surveillance.
+
+*(Real `mode: generative` response. The agent refuses cleanly rather than serving a nearby
+concept — grounded-or-refuse, live.)*
 
 ## 3. Grounded — and honest about its boundary
 

@@ -45,7 +45,7 @@ def test_deploy_entrypoint_is_a_thin_reexport():
     """The runtime entrypoint re-exports the source agent app rather than reimplementing it.
     We can't import it locally (bedrock_agentcore is deploy-only), so assert structurally:
     it imports the app from nhis_okf.agentcore_app and defines no agent of its own."""
-    main = (REPO_ROOT / "app" / "main.py").read_text()
+    main = (REPO_ROOT / "NhisOkfChat" / "app" / "NhisOkfChat" / "main.py").read_text()
     assert "from nhis_okf.agentcore_app import app" in main
     assert 'setdefault("NHIS_RUNTIME_TOOLS", "retrieval")' in main
     assert "NHIS_OKF_DIR" in main
