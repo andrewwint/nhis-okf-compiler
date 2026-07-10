@@ -94,6 +94,19 @@ def cmd_analyze(args) -> int:
         )
         return 2
     df = _load_df()
+    if args.groupby:
+        # By-group weighted table: one aggregate cell per substantive group value, no rows.
+        try:
+            table = analysis.groupby_table(
+                df, args.variable, args.groupby, stat=args.stat, q=args.q,
+                extra_universe=args.universe,
+            )
+        except Exception as exc:
+            print(f"could not compute: {exc}", file=sys.stderr)
+            return 1
+        print(table.summary())
+        print(f"\n{SAFETY}")
+        return 0
     try:
         res = analysis.subpopulation_stat(
             df, args.variable, universe_expr=args.universe, stat=args.stat, q=args.q
@@ -231,6 +244,11 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument(
         "--universe", default=None,
         help="pandas row filter defining the subpopulation, e.g. 'DIBEV_A == 1'",
+    )
+    a.add_argument(
+        "--groupby", default=None,
+        help="categorical column to tabulate by, e.g. 'SEX_A'; prints one weighted "
+        "aggregate cell (estimate + design CI) per substantive group value, no rows",
     )
     a.add_argument(
         "--stat", default="prevalence", choices=["prevalence", "mean", "quantile"],

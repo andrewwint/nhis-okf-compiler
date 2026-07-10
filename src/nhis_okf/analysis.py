@@ -673,6 +673,141 @@ def subpopulation_stat(
     raise ValueError(f"unknown stat kind: {stat!r} (use prevalence|mean|quantile)")
 
 
+# --- Deterministic weighted groupby table ----------------------------------------------
+#
+# A "by-group" answer (insulin use by sex, mean weight by BMI category) is just the same
+# registry-correct, weighted `subpopulation_stat` computed once per group value, assembled
+# into a table here rather than by an LLM looping over the single-cell tool. Every cell is
+# an aggregate + design-based CI; there is no row path. The measured `variable` is grounded
+# where this is called (CLI / agent tool); the grouping column only partitions.
+
+# Cap on the number of groups: guards a mistaken groupby on a near-continuous column from
+# emitting an unbounded table.
+MAX_GROUPS = 20
+
+# Non-substantive grouping codes to drop when the grouping column is not in the registry:
+# the shared 7/8/9-family reserved codes plus the 96-99 and 996-999 "not ascertained /
+# refused / don't know" bands NHIS uses for wider-range items.
+_NONSUBSTANTIVE_GROUP_CODES = set(registry.NONSUBSTANTIVE_CODES) | {96} | set(range(996, 1000))
+
+
+def _substantive_group_values(df: pd.DataFrame, groupby: str) -> list:
+    """Ordered substantive values of a grouping column.
+
+    Prefer the registry's `valid_codes` when the column is a known variable; otherwise take
+    the distinct non-null values present, dropping the usual non-substantive codes (7/8/9,
+    96-99, 996-999). Only integer-like categorical codes are kept, so grouping on a truly
+    continuous column yields many values and trips the group cap rather than silently
+    tabulating noise.
+    """
+    if groupby in registry.REGISTRY:
+        present = set(df[groupby].dropna().unique())
+        return [c for c in registry.get(groupby).valid_codes if c in present]
+    values = []
+    for v in sorted(df[groupby].dropna().unique()):
+        f = float(v)
+        if not f.is_integer():  # a non-integer value means this is not categorical
+            continue
+        iv = int(f)
+        if iv in _NONSUBSTANTIVE_GROUP_CODES:
+            continue
+        values.append(iv)
+    return values
+
+
+@dataclass
+class TableCell:
+    """One group's weighted aggregate: the group value and its `SubpopulationResult`."""
+
+    group_value: object
+    result: SubpopulationResult
+
+
+@dataclass
+class TableResult:
+    """A survey-weighted by-group table: one aggregate cell per substantive group value.
+
+    Aggregate-only — every cell is a `SubpopulationResult` (estimate + design-based CI),
+    never a set of individual rows.
+    """
+
+    variable: str
+    groupby: str
+    stat: str
+    cells: list[TableCell]
+    extra_universe: str | None = None
+    q: float | None = None
+
+    def summary(self) -> str:
+        label = self.stat if self.q is None else f"{self.stat} (q={self.q:g})"
+        weight_var = self.cells[0].result.weight_var if self.cells else registry.SAMPLE_ADULT_WEIGHT
+        header = (
+            f"{self.variable} {label} by {self.groupby} "
+            f"(survey-weighted by {weight_var}"
+        )
+        if self.extra_universe:
+            header += f"; universe: {self.extra_universe}"
+        header += "):"
+        lines = [header]
+        for cell in self.cells:
+            r = cell.result
+            lines.append(
+                f"  {self.groupby}={cell.group_value}: {r.estimate:.2f}{r.unit} "
+                f"(95% CI {r.lci:.2f}-{r.uci:.2f}{r.unit}; n={r.unweighted_n})"
+            )
+        return "\n".join(lines)
+
+
+def groupby_table(
+    df: pd.DataFrame,
+    variable: str,
+    groupby: str,
+    *,
+    stat: str = "prevalence",
+    q: float = 0.5,
+    extra_universe: str | None = None,
+) -> TableResult:
+    """Survey-weighted aggregate + design-based CI for `variable` within each substantive
+    value of the `groupby` column, assembled into a `TableResult`.
+
+    Each cell reuses `subpopulation_stat` over the universe `(groupby == value)` combined
+    (AND) with `extra_universe` when given, so no cell can drift from what `nhis analyze` /
+    the single-cell tool return. Non-substantive group codes are dropped; empty groups (no
+    substantive rows) are skipped rather than reported as a fabricated 0.0. Raises
+    `ValueError` if the grouping column has more substantive values than `MAX_GROUPS`.
+    """
+    if groupby not in df.columns:
+        raise ValueError(f"unknown grouping column: {groupby!r}")
+    group_values = _substantive_group_values(df, groupby)
+    if len(group_values) > MAX_GROUPS:
+        raise ValueError(
+            f"grouping column {groupby!r} has {len(group_values)} substantive values "
+            f"(> cap {MAX_GROUPS}); groupby is for categorical columns, not near-continuous "
+            f"ones"
+        )
+    cells: list[TableCell] = []
+    for value in group_values:
+        group_expr = f"({groupby} == {value})"
+        universe = (
+            f"{group_expr} & ({extra_universe})" if extra_universe else group_expr
+        )
+        try:
+            res = subpopulation_stat(df, variable, universe_expr=universe, stat=stat, q=q)
+        except ValueError:
+            # Empty group (no substantive rows): skip rather than fabricate an estimate.
+            continue
+        cells.append(TableCell(group_value=value, result=res))
+    if not cells:
+        raise ValueError(
+            f"no substantive groups for {variable!r} by {groupby!r}"
+            + (f" within universe {extra_universe!r}" if extra_universe else "")
+        )
+    return TableResult(
+        variable=variable, groupby=groupby, stat=stat, cells=cells,
+        extra_universe=extra_universe, q=(q if stat == "quantile" else None),
+    )
+
+
 def fetch_microdata(dest_dir: str | Path = DATA_DIR) -> Path:
     """Download + unzip the NHIS 2023 Sample Adult public-use CSV (idempotent)."""
     import urllib.request
