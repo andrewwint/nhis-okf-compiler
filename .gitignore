@@ -24,3 +24,11 @@ __pycache__/
 deploy/infra/cdk.out/
 deploy/infra/cdk.context.json
 deploy/infra/node_modules/
+
+# AgentCore CLI generated / heavy / secret artifacts (only the hand-authored config,
+# thin shim, and requirements are tracked)
+deploy/agentcore/cdk/
+deploy/agentcore/.cache/
+deploy/agentcore/node_modules/
+deploy/agentcore/.venv/
+deploy/agentcore/.env.local

@@ -23,13 +23,16 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from . import registry, trends as trends_mod
+from . import config, registry, trends as trends_mod
 from .concepts import Concept, load_all
 from .trends import TrendConcept, TrendVerifyResult
 from .verify import VerifyResult, verify_all, PASS, FAIL, DESCRIPTIVE
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-OKF_DIR = REPO_ROOT / ".okf"
+# Bundle location resolves via config.okf_dir() (env `NHIS_OKF_DIR`, default repo-relative
+# `.okf/`), so a packaged runtime reads its bundled copy. Retrieval imports VARIABLES_DIR
+# from here; the env is read at import time (the runtime sets it before importing the agent).
+OKF_DIR = config.okf_dir()
 VARIABLES_DIR = OKF_DIR / "variables"
 REFERENCES_DIR = OKF_DIR / "references"
 # Hand-authored Reference concepts (part of the audit trail) copied into the bundle verbatim.

@@ -8,6 +8,21 @@ by environment variables so nothing is hard-pinned.
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+# Repo root: src/nhis_okf/config.py -> parents[2].
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def okf_dir() -> Path:
+    """The verified OKF bundle directory.
+
+    Defaults to the repo-relative `.okf/`; override with `NHIS_OKF_DIR` so a packaged
+    runtime (the AgentCore CodeZip) can point retrieval at its bundled copy. Repo-relative
+    default keeps local runs and tests unchanged.
+    """
+    override = os.environ.get("NHIS_OKF_DIR")
+    return Path(override) if override else _REPO_ROOT / ".okf"
 
 
 def aws_region() -> str:

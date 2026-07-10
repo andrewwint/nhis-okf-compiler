@@ -196,3 +196,78 @@ def test_groupby_table_surfaces_group_cap_error(df):
     out = chat.groupby_table("DIBINS_A", "WEIGHTLBTC_A", "prevalence", "DIBEV_A == 1")
     assert out.startswith("REFUSED")
     assert "cap" in out
+
+
+# --- Retrieval-only runtime tool mode ----------------------------------------------------
+
+def _tool_names(tools) -> set[str]:
+    names = set()
+    for t in tools:
+        name = getattr(t, "tool_name", None) or getattr(t, "__name__", None)
+        if name is None:
+            spec = getattr(t, "tool_spec", None)
+            if isinstance(spec, dict):
+                name = spec.get("name")
+        names.add(name)
+    return names
+
+
+def test_retrieval_mode_registers_only_search_tool(monkeypatch):
+    monkeypatch.setenv("NHIS_RUNTIME_TOOLS", "retrieval")
+    names = _tool_names(chat._as_tools())
+    assert names == {"search_verified_okf"}
+
+
+def test_default_mode_registers_all_three_tools(monkeypatch):
+    monkeypatch.delenv("NHIS_RUNTIME_TOOLS", raising=False)
+    names = _tool_names(chat._as_tools())
+    assert names == {"search_verified_okf", "analyze_subpopulation", "groupby_table"}
+
+
+def test_retrieval_only_agent_has_single_tool(monkeypatch):
+    """The built agent in retrieval mode carries only the verified-bundle retrieval tool."""
+    monkeypatch.setenv("NHIS_RUNTIME_TOOLS", "retrieval")
+    from strands.models import Model
+
+    class _Idle(Model):
+        def update_config(self, **_k): pass
+        def get_config(self): return {}
+        async def structured_output(self, *_a, **_k): yield {}
+        async def stream(self, *_a, **_k):
+            yield {"messageStart": {"role": "assistant"}}
+            yield {"contentBlockStop": {}}
+            yield {"messageStop": {"stopReason": "end_turn"}}
+
+    agent = chat.build_chat_agent(model=_Idle())
+    names = set(agent.tool_registry.get_all_tools_config().keys())
+    assert names == {"search_verified_okf"}
+
+
+def test_building_retrieval_tools_does_not_import_analysis():
+    """Building the retrieval-only tool set must not import our pandas-bearing `analysis`
+    module — the property that keeps the packaged CodeZip pandas-free (the runtime installs
+    no pandas). Run in a fresh subprocess so the assertion is not contaminated by imports
+    other tests performed in this process.
+
+    Note: we assert on `nhis_okf.analysis`, not `pandas` in sys.modules — the local venv has
+    sklearn, which *optionally* imports pandas if present. In the deploy container pandas is
+    not installed and sklearn works without it; the meaningful guard is that our compute path
+    (which requires pandas) is never loaded.
+    """
+    import subprocess
+    import sys
+
+    code = (
+        "import os, sys\n"
+        "os.environ['NHIS_RUNTIME_TOOLS'] = 'retrieval'\n"
+        "from nhis_okf import chat\n"
+        "tools = chat._as_tools()\n"
+        "assert 'nhis_okf.analysis' not in sys.modules, 'analysis was imported'\n"
+        "assert 'nhis_okf.compiler' not in sys.modules, 'compiler (pandas) was imported'\n"
+        "print('OK', len(tools))\n"
+    )
+    res = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True
+    )
+    assert res.returncode == 0, res.stderr
+    assert res.stdout.strip() == "OK 1"
