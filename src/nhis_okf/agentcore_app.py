@@ -41,7 +41,11 @@ def invoke(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
         return {"error": "no question provided", "answered": False}
 
     log.info("OKF query: %s", question)
-    ans = answer(question)  # generative on Bedrock at deploy; grounded by construction
+    # Force the generative (Bedrock) path at deploy: there's no ANTHROPIC_API_KEY and no
+    # injected model here, so answer()'s auto-detect would otherwise fall to extractive
+    # (which "refuses" by returning the nearest concept). Generative gives clean
+    # grounded-or-refuse; it falls back to extractive automatically if Bedrock errors.
+    ans = answer(question, generative=True)  # grounded by construction
     return {
         "answered": True,
         "mode": ans.mode,

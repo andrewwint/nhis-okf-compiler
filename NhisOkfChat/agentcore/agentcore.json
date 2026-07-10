@@ -4,14 +4,15 @@
   "version": 1,
   "managedBy": "CDK",
   "tags": {
+    "agentcore:created-by": "agentcore-cli",
     "agentcore:project-name": "NhisOkfChat"
   },
   "runtimes": [
     {
-      "name": "nhis_okf_chat",
+      "name": "NhisOkfChat",
       "build": "CodeZip",
       "entrypoint": "main.py",
-      "codeLocation": "app",
+      "codeLocation": "app/NhisOkfChat/",
       "runtimeVersion": "PYTHON_3_12",
       "networkMode": "PUBLIC",
       "protocol": "HTTP"

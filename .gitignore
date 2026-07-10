@@ -20,18 +20,20 @@ __pycache__/
 # macOS
 .DS_Store
 
-# AgentCore CLI generated / heavy / secret / build artifacts (only the hand-authored
-# config, thin shim, and app project are tracked)
-agentcore/cdk/
-agentcore/.cache/
-agentcore/node_modules/
-agentcore/.venv/
-agentcore/.env.local
-agentcore/*/staging/
-app/**/.venv/
-app/**/staging/
-app/**/*.egg-info/
-
-# Vendored CodeZip payload assembled by app/build_runtime.py (src/nhis_okf + .okf are the
-# single source of truth; these copies are build artifacts, never committed).
-app/nhis_okf/
+# AgentCore CLI project (NhisOkfChat/) — generated / heavy / secret / build artifacts.
+# Tracked: agentcore.json, aws-targets.json, app/NhisOkfChat/{main.py,build_runtime.py,pyproject.toml,README.md}.
+NhisOkfChat/agentcore/cdk/node_modules/
+NhisOkfChat/agentcore/cdk/cdk.out/
+NhisOkfChat/agentcore/.cli/
+NhisOkfChat/agentcore/.cache/
+NhisOkfChat/agentcore/.venv/
+NhisOkfChat/agentcore/.env.local
+NhisOkfChat/**/staging/
+NhisOkfChat/**/.venv/
+NhisOkfChat/**/*.egg-info/
+NhisOkfChat/**/__pycache__/
+NhisOkfChat/*.zip
+NhisOkfChat/app/NhisOkfChat/skills/
+# Vendored CodeZip payload assembled by build_runtime.py (src/nhis_okf + .okf are the single
+# source of truth; this copy is a build artifact, never committed).
+NhisOkfChat/app/NhisOkfChat/nhis_okf/

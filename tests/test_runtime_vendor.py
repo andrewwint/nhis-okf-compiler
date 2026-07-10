@@ -12,9 +12,10 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+DEPLOY_APP = REPO_ROOT / "NhisOkfChat" / "app" / "NhisOkfChat"
 SRC_PKG = REPO_ROOT / "src" / "nhis_okf"
 SRC_BUNDLE = REPO_ROOT / ".okf"
-DEST_PKG = REPO_ROOT / "app" / "nhis_okf"
+DEST_PKG = DEPLOY_APP / "nhis_okf"
 DEST_BUNDLE = DEST_PKG / "okf_bundle"
 
 
@@ -30,7 +31,7 @@ def _assert_identical(left: Path, right: Path, *, ignore=()) -> None:
 
 def test_build_runtime_vendors_faithfully():
     res = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "app" / "build_runtime.py")],
+        [sys.executable, str(DEPLOY_APP / "build_runtime.py")],
         capture_output=True,
         text=True,
     )
