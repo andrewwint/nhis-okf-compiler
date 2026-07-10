@@ -15,31 +15,44 @@ data only — not medical advice.
 
 ## How it works
 
-A query passes through a verification funnel. The agent only ever sees concepts that passed
-execution-grounded verification at compile time:
+The chat agent (Bedrock AgentCore) is the only end-user surface. Every query passes through a
+verification funnel: the agent has **two deterministic tools** and no other window onto the
+data — never raw rows.
 
 ```
 [ user query ]
       |
-( Strands agent )         grounded-or-refuse; cites verified ids only
+( Strands agent )   grounded-or-refuse; states universe + weight basis with every figure
       |
-[ search_verified_okf ]   the agent's only data tool
-      |
-( retrieval index )       in-process retrieval over the verified bundle —
-      |                   the same mechanism locally and when deployed
-      +------------------------------+
-      |                              |
-      v                              v
- .okf/variables/                .okf/log.md
- DIBINS_A.md -> 31.96%  PASS    DIBINS_A__naive -> 3.66%  QUARANTINED
-      |                              |
-      v                              v
- fed to the agent               never indexed -> unreachable
+      +---------------------------------------+
+      |                                       |
+[ search_verified_okf ]              [ analyze_subpopulation ]
+ retrieval over the verified          deterministic, survey-weighted
+ bundle (grounded-at-                 aggregate + design-based CI for a
+ COMPILE-time)                        subgroup (grounded-at-QUERY-time),
+      |                               verified variables only, aggregate-only
+      |                                       |
+( in-process retrieval )              ( registry-correct compute — mandatory
+      |                                 weights, correct universe )
+      +------------------------------+        |
+      |                              |        v
+      v                              v   estimate + CI, never rows
+ .okf/variables/                .okf/log.md      (refuses an unverified
+ DIBINS_A.md -> 31.96%  PASS    DIBINS_A__naive   variable or empty universe)
+      |                         -> 3.66% QUARANTINED
+      v                              |
+ fed to the agent                    v
+                                never indexed -> unreachable
 ```
 
 `compiler.py` writes only verified concepts to `.okf/variables/` and quarantines failures to
 `.okf/log.md`. A quarantined figure is never written to the bundle, so the retriever cannot
 build an index entry for it — grounding is enforced by what exists, not by prompt instructions.
+`analyze_subpopulation` extends that guarantee from compile-time to query-time: it is not an
+LLM-guessed number but the same deterministic, weights-mandatory computation the verifier runs,
+restricted to verified variables and returning aggregates only. It refuses (never fabricates)
+for an unverified variable or an empty subpopulation. The raw-row researcher tool
+(`nhis rows`) is **never** an agent tool — the agent cannot reach individual records.
 
 ## Zero-database RAG
 
@@ -80,7 +93,7 @@ python3 -m venv .venv && ./.venv/bin/pip install -e ".[dev]"
 ./.venv/bin/nhis compile      # emit the verified OKF bundle; quarantine failures
 ./.venv/bin/nhis conformance  # check against the OKF v0.1 spec
 ./.venv/bin/nhis query "what share of adults with diabetes take insulin?"
-./.venv/bin/pytest -q         # 41 tests
+./.venv/bin/pytest -q         # 78 tests
 ```
 
 The raw inputs are the CDC NHIS Sample Adult **public-use CSV files** (`samadult.csv` for 2018,

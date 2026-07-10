@@ -19,7 +19,8 @@ from . import (
     registry,
     parquet_query,
 )
-from .compiler import compile_bundle, check_conformance, _split_frontmatter, OKF_DIR, VARIABLES_DIR
+from .compiler import compile_bundle, check_conformance, OKF_DIR
+from .retrieval import verified_variables
 
 SAFETY = (
     "Public, de-identified, aggregate CDC NHIS survey data — not medical advice, no "
@@ -75,17 +76,10 @@ def cmd_build(_args) -> int:
 def _verified_variables() -> set[str]:
     """Variables backed by a verified concept in the compiled bundle.
 
-    The compiler only writes concepts that passed execution-grounded verification, so a
-    concept file's presence is proof of grounding. This is the allow-list for `analyze`.
+    Thin wrapper over the shared `retrieval.verified_variables` allow-list, which the
+    agent's `analyze_subpopulation` tool reuses so both surfaces gate on the same set.
     """
-    out: set[str] = set()
-    if not VARIABLES_DIR.exists():
-        return out
-    for p in VARIABLES_DIR.glob("*.md"):
-        fm = _split_frontmatter(p.read_text())
-        if fm and fm.get("variable"):
-            out.add(fm["variable"])
-    return out
+    return verified_variables()
 
 
 def cmd_analyze(args) -> int:
