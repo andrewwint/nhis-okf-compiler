@@ -3,13 +3,16 @@
 **The chat agent is the only end-user surface.** End users ask questions in natural language;
 they never touch the CLI. The agent runs on **Amazon Bedrock AgentCore** when deployed
 (`agentcore invoke`) and on the same code path locally via `nhis query` (Anthropic API). It
-has **two deterministic tools and no other window onto the data**:
+has **three deterministic tools and no other window onto the data**:
 
 - `search_verified_okf` — retrieval over the verified OKF bundle (grounded at *compile* time):
   answers from a precomputed concept, cites the concept id, quotes the figure + design-based CI.
 - `analyze_subpopulation` — a deterministic, survey-weighted computation with a design-based
   CI for an *ad-hoc subgroup* a concept does not already carry (grounded at *query* time):
   verified variables only, aggregate-only, and it refuses rather than guesses.
+- `groupby_table` — a deterministic, survey-weighted **by-group table** (one aggregate cell +
+  design-based CI per substantive group value) for a "by <group>" question, e.g. insulin use
+  by sex: verified variables only, aggregate cells only (never rows), refuses rather than guesses.
 
 The agent states the universe + weight basis with every figure and never invents a number.
 `nhis analyze` / `nhis rows` (further down) are **internal researcher tools**, not the
@@ -160,6 +163,26 @@ $ nhis analyze --variable WEIGHTLBTC_A --universe "SEX_A == 2" --stat mean
 WEIGHTLBTC_A mean: 162.68 (95% CI 161.90-163.47; design-based SE 0.40; weighted by WTFA_A;
   universe: SEX_A == 2; n=14599 unweighted, denominator 120,035,788 weighted)
 ```
+
+## By-group table in one call (`--groupby`)
+
+`--groupby <COL>` returns the whole weighted table in a single deterministic call — one
+aggregate cell (estimate + design-based CI + unweighted n) per substantive value of the
+grouping column, so the *table*, not just each cell, is deterministic. Non-substantive
+group codes (e.g. `SEX_A` 7/9) are dropped and the group count is capped (a mistaken
+groupby on a near-continuous column errors rather than emitting a huge table). Cells are
+**aggregates only — never rows**, and each equals the matching single `nhis analyze` cell.
+Here, insulin use among diagnosed adults (`DIBEV_A == 1`) by sex:
+
+```
+$ nhis analyze --variable DIBINS_A --universe "DIBEV_A == 1" --groupby SEX_A --stat prevalence
+DIBINS_A prevalence by SEX_A (survey-weighted by WTFA_A; universe: DIBEV_A == 1):
+  SEX_A=1: 32.04% (95% CI 29.22-34.85%; n=1579)
+  SEX_A=2: 31.88% (95% CI 29.21-34.56%; n=1712)
+```
+
+The grounded chat agent uses the same computation for a "by <group>" question via its
+`groupby_table` tool (verified-variable-or-refuse, aggregate table text only).
 
 ## Refusals (grounded-or-refuse, and no fabricated numbers)
 

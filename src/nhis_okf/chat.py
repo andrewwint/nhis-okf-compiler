@@ -46,10 +46,10 @@ MAX_OUTPUT_TOKENS = 600
 MAX_QUESTION_CHARS = 600
 
 OKF_ANALYST_PROMPT = """\
-You answer questions about U.S. health survey statistics using ONLY the two verified,
+You answer questions about U.S. health survey statistics using ONLY the three verified,
 deterministic tools below. Never use outside knowledge for a figure.
 
-Your two tools:
+Your three tools:
 - search_verified_okf(query): retrieval over the verified OKF bundle. Use it for a
   precomputed concept the bundle already carries (e.g. insulin use among diagnosed
   adults). Quote the exact survey-weighted percentage and cite the concept id in brackets,
@@ -60,11 +60,18 @@ Your two tools:
   age at diagnosis for a subset). `variable` must be a verified variable; `universe` is a
   pandas row filter over the microdata, e.g. "DIBEV_A == 1 & SEX_A == 2". `stat` is one of
   prevalence | mean | quantile. It returns only an aggregate estimate and its CI.
+- groupby_table(variable, groupby, stat, universe, q): a deterministic, survey-weighted
+  TABLE — one aggregate cell (estimate + design-based CI) per substantive value of a
+  grouping column. Use it for a "by <group>" question (e.g. "insulin use by sex", "mean
+  weight by BMI category"). `variable` must be a verified variable; `groupby` is the
+  categorical column to tabulate by (e.g. "SEX_A"); `universe` is an optional filter
+  combined with each group (e.g. "DIBEV_A == 1"). It returns only aggregate cells, never
+  rows.
 
 Hard rules:
 - Prefer search_verified_okf when a precomputed concept answers the question; use
-  analyze_subpopulation for an ad-hoc weighted subgroup. Use ONLY the numbers the tools
-  return.
+  groupby_table for a "by <group>" table; use analyze_subpopulation for a single ad-hoc
+  weighted subgroup. Use ONLY the numbers the tools return.
 - If a tool returns nothing relevant or a REFUSED message, say you cannot answer that from
   the verified bundle. Do NOT invent, estimate, or guess a number.
 - ALWAYS state the survey-weighted basis (the universe/denominator and that it is
@@ -168,15 +175,48 @@ def analyze_subpopulation(
     return res.summary()
 
 
-def _as_tools():
-    """Wrap the agent's two deterministic tools as Strands tools (imported lazily).
+def groupby_table(
+    variable: str, groupby: str, stat: str = "prevalence",
+    universe: str | None = None, q: float = 0.5,
+) -> str:
+    """Compute a survey-weighted by-group TABLE for a VERIFIED NHIS variable: one aggregate
+    cell (estimate + design-based CI) per substantive value of a grouping column.
 
-    Both are grounded: retrieval over the verified bundle, and a deterministic weighted
-    subpopulation computation restricted to verified variables. Neither can reach raw rows.
+    Use this for a "by <group>" question (e.g. insulin use by sex, mean weight by BMI
+    category) — a single deterministic call returns the whole weighted table. `variable`
+    must be a verified variable; `groupby` is a categorical column to tabulate by (e.g.
+    "SEX_A"); `stat` is prevalence | mean | quantile; `universe` is an optional pandas row
+    filter combined (AND) with each group (e.g. "DIBEV_A == 1" for among-diagnosed); `q` is
+    the quantile probability when stat is quantile. Returns only aggregate cells — never
+    individual rows. Returns a message beginning with REFUSED for an unverified variable or
+    when no table can be computed (e.g. the group cap is exceeded).
+    """
+    allowed = verified_variables()
+    if variable not in allowed:
+        return (
+            f"REFUSED: {variable!r} is not backed by a verified concept in the compiled "
+            f"bundle, so no grounded table can be computed. Verified variables: "
+            f"{', '.join(sorted(allowed)) or '(none compiled)'}."
+        )
+    try:
+        table = analysis.groupby_table(
+            _microdata(), variable, groupby, stat=stat, q=q, extra_universe=universe
+        )
+    except Exception as exc:
+        return f"REFUSED: could not compute a grounded table — {exc}."
+    return table.summary()
+
+
+def _as_tools():
+    """Wrap the agent's three deterministic tools as Strands tools (imported lazily).
+
+    All grounded: retrieval over the verified bundle, a deterministic weighted subpopulation
+    computation, and a deterministic weighted by-group table — each restricted to verified
+    variables. None can reach raw rows.
     """
     from strands import tool
 
-    return [tool(search_verified_okf), tool(analyze_subpopulation)]
+    return [tool(search_verified_okf), tool(analyze_subpopulation), tool(groupby_table)]
 
 
 def build_chat_agent(model: Any | None = None):

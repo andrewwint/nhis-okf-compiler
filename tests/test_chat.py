@@ -19,8 +19,14 @@ class _ToolThenTextModel(Model):
     it emits a short final answer that quotes the tool's aggregate. No network, no API.
     """
 
-    def __init__(self, variable: str, universe: str, stat: str = "prevalence"):
+    def __init__(
+        self, variable: str, universe: str, stat: str = "prevalence",
+        *, tool_name: str = "analyze_subpopulation", extra_args: dict | None = None,
+    ):
+        self._tool_name = tool_name
         self._args = {"variable": variable, "universe": universe, "stat": stat}
+        if extra_args:
+            self._args.update(extra_args)
         self.tool_calls: list[str] = []
 
     def update_config(self, **_kwargs):  # pragma: no cover - interface stub
@@ -46,11 +52,11 @@ class _ToolThenTextModel(Model):
     async def stream(self, messages, tool_specs=None, system_prompt=None, **kwargs):
         tool_text = self._tool_result_text(messages)
         if tool_text is None:
-            # First turn: call analyze_subpopulation with our fixed arguments.
-            self.tool_calls.append("analyze_subpopulation")
+            # First turn: call the configured tool with our fixed arguments.
+            self.tool_calls.append(self._tool_name)
             yield {"messageStart": {"role": "assistant"}}
             yield {"contentBlockStart": {"start": {"toolUse": {
-                "toolUseId": "t1", "name": "analyze_subpopulation"}}}}
+                "toolUseId": "t1", "name": self._tool_name}}}}
             yield {"contentBlockDelta": {"delta": {"toolUse": {
                 "input": json.dumps(self._args)}}}}
             yield {"contentBlockStop": {}}
@@ -153,3 +159,40 @@ def test_analyze_subpopulation_refuses_empty_subpopulation(df):
     out = chat.analyze_subpopulation("DIBINS_A", "DIBEV_A == 999")
     assert out.startswith("REFUSED")
     assert "empty subpopulation" in out
+
+
+# --- The query-time groupby table tool ---------------------------------------------------
+
+def test_agent_invokes_groupby_table_for_by_group_question(df):
+    """Given a by-group question, the agent calls groupby_table (via a stub model) and
+    surfaces the deterministic weighted table with a design-based CI per group."""
+    model = _ToolThenTextModel(
+        variable="DIBINS_A", universe="DIBEV_A == 1", stat="prevalence",
+        tool_name="groupby_table", extra_args={"groupby": "SEX_A"},
+    )
+    agent = chat.build_chat_agent(model=model)
+    out = str(agent("insulin use by sex among diagnosed adults")).strip()
+    assert model.tool_calls == ["groupby_table"]  # the agent invoked the table tool
+    assert "by SEX_A" in out
+    assert out.count("95% CI") == 2          # one weighted cell per sex
+    assert "WTFA_A" in out                   # stated survey-weighted basis
+
+
+def test_groupby_table_refuses_unverified_variable():
+    out = chat.groupby_table("SMOKEV_A", "SEX_A")
+    assert out.startswith("REFUSED")
+    assert "verified" in out.lower()
+
+
+def test_groupby_table_returns_aggregate_table_text(df):
+    out = chat.groupby_table("DIBINS_A", "SEX_A", "prevalence", "DIBEV_A == 1")
+    assert isinstance(out, str)
+    assert "by SEX_A" in out and "95% CI" in out
+    assert "SEX_A=1" in out and "SEX_A=2" in out
+
+
+def test_groupby_table_surfaces_group_cap_error(df):
+    # Grouping on a near-continuous column is refused with a clear message, not a huge table.
+    out = chat.groupby_table("DIBINS_A", "WEIGHTLBTC_A", "prevalence", "DIBEV_A == 1")
+    assert out.startswith("REFUSED")
+    assert "cap" in out
