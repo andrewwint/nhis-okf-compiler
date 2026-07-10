@@ -14,15 +14,33 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def _shipped_bundle_dir() -> Path:
+    """The bundle location shipped alongside the vendored `nhis_okf` package.
+
+    `app/build_runtime.py` vendors `src/nhis_okf/` and copies `.okf/` into
+    `<package>/okf_bundle/` at package time, so the CodeZip runtime carries the verified
+    bundle beside the code. Used as the final fallback when neither `NHIS_OKF_DIR` nor a
+    repo-relative `.okf/` is present (i.e. in the deployed runtime).
+    """
+    return Path(__file__).resolve().parent / "okf_bundle"
+
+
 def okf_dir() -> Path:
     """The verified OKF bundle directory.
 
-    Defaults to the repo-relative `.okf/`; override with `NHIS_OKF_DIR` so a packaged
-    runtime (the AgentCore CodeZip) can point retrieval at its bundled copy. Repo-relative
-    default keeps local runs and tests unchanged.
+    Resolution order:
+      1. `NHIS_OKF_DIR` env override (the packaged runtime points here explicitly), then
+      2. the repo-relative `.okf/` when it exists (local runs and tests, unchanged), then
+      3. the bundle shipped inside the installed package (the deployed CodeZip, which has no
+         repo-relative `.okf/`).
     """
     override = os.environ.get("NHIS_OKF_DIR")
-    return Path(override) if override else _REPO_ROOT / ".okf"
+    if override:
+        return Path(override)
+    repo_bundle = _REPO_ROOT / ".okf"
+    if repo_bundle.exists():
+        return repo_bundle
+    return _shipped_bundle_dir()
 
 
 def aws_region() -> str:

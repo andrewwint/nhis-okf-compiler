@@ -31,3 +31,7 @@ agentcore/*/staging/
 app/**/.venv/
 app/**/staging/
 app/**/*.egg-info/
+
+# Vendored CodeZip payload assembled by app/build_runtime.py (src/nhis_okf + .okf are the
+# single source of truth; these copies are build artifacts, never committed).
+app/nhis_okf/

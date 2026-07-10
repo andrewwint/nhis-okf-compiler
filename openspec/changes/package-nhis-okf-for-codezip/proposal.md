@@ -21,15 +21,18 @@ single AgentCore CLI project at the repo root and drop the CDK web front (demo i
 - **Root `pyproject.toml`:** move `pandas`/`pyarrow` to an optional `[compute]` extra; base deps
   become retrieval-only (`numpy`, `scikit-learn`, `PyYAML`). `[dev]` includes `[compute]` so
   local install/tests are unchanged (`pip install -e ".[dev]"` still full).
-- **Bundle shipping:** include `.okf/` in the built artifact — as `nhis_okf` package data
-  (setuptools force-include) if clean, else a package-time copy into the gitignored codeLocation.
-  No committed duplicate. `config.okf_dir()` falls back to the shipped bundle when the
-  repo-relative `.okf/` is absent and `NHIS_OKF_DIR` is unset.
-- **Self-contained app:** `app/nhis_okf_chat/pyproject.toml` depends on `nhis-okf` (base,
-  pandas-free) + the AgentCore/Strands runtime deps via a `uv` path source to the repo root; the
-  thin `main.py` sets retrieval-only mode + `NHIS_OKF_DIR` and re-exports the agent.
-- **Verify by packaging:** `agentcore package` builds the zip locally; confirm < 250 MB, imports
-  retrieval-only (no pandas), and finds the bundle.
+- **Vendored, self-contained codeLocation (no path-dep — it can't resolve at AWS runtime).**
+  `app/build_runtime.py` copies `src/nhis_okf/` → `app/nhis_okf/` and `.okf/` →
+  `app/nhis_okf/okf_bundle/` at package time — both **gitignored build artifacts**, guarded by a
+  drift test, so `src/nhis_okf` + `.okf/` stay the sole committed source of truth. The thin
+  `app/main.py` imports the vendored `nhis_okf`, sets retrieval-only mode, and re-exports the
+  agent. `config.okf_dir()` falls back to the shipped `okf_bundle/` when neither `NHIS_OKF_DIR`
+  nor a repo-relative `.okf/` is present.
+- **Third-party-only `requirements.txt`.** `app/requirements.txt` lists only the deps AgentCore
+  installs at deploy (strands-agents, bedrock-agentcore, numpy, scikit-learn, PyYAML) — no
+  pandas/pyarrow, no `nhis-okf`.
+- **Verify by packaging:** `agentcore package` builds the zip locally; confirm < 250 MB, contains
+  the vendored code + bundle, and is pandas-free.
 
 ## Impact
 
