@@ -1,0 +1,13 @@
+# Third-party runtime deps ONLY — AgentCore installs these into the CodeZip at package time
+# (arm64 / aarch64). The `nhis_okf` package itself is NOT here: it is not on PyPI, so it is
+# vendored into `app/nhis_okf/` by `app/build_runtime.py` and imported directly.
+#
+# Runtime path only: agentcore_app -> chat -> retrieval (TF-IDF) over the *already-compiled*
+# .okf bundle vendored in the CodeZip. So NO pandas / pyarrow (build-time compute only) and
+# no anthropic (the runtime uses Bedrock). Keep the zip <= 250 MB; if it grows past that,
+# switch to a Container build.
+strands-agents>=1.0
+bedrock-agentcore>=1.9.1
+numpy>=1.24
+scikit-learn>=1.3
+PyYAML>=6.0

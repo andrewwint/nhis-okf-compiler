@@ -7,16 +7,20 @@ name = "nhis-okf-compiler"
 version = "0.1.0"
 description = "Compile CDC NHIS into a verified Open Knowledge Format bundle with execution-grounded verification."
 requires-python = ">=3.10"
+# Base (retrieval-only) deps: the packaged AgentCore runtime installs just these, so the
+# CodeZip stays pandas-free and under 250 MB. Compute (pandas/pyarrow) is an optional extra
+# that the build-time verify/compile/analysis path pulls in.
 dependencies = [
-    "pandas>=2.0",
     "numpy>=1.24",
-    "pyarrow>=14.0",
     "scikit-learn>=1.3",
     "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4"]
+# Build-time statistical compute (survey-weighted analysis, parquet). Not in the runtime.
+compute = ["pandas>=2.0", "pyarrow>=14.0"]
+# Local dev pulls compute so verify/compile and the full test suite keep pandas.
+dev = ["nhis-okf-compiler[compute]", "pytest>=7.4"]
 # Strands grounded-answering agent (Anthropic API locally, Bedrock at deploy).
 agent = ["strands-agents>=1.0", "anthropic>=0.40"]
 # AgentCore Runtime SDK for deploy (import: bedrock_agentcore).

@@ -26,6 +26,16 @@ def test_okf_dir_honors_env_override(monkeypatch, tmp_path):
     assert config.okf_dir() == tmp_path
 
 
+def test_okf_dir_falls_back_to_shipped_bundle(monkeypatch, tmp_path):
+    """When the env is unset and the repo-relative `.okf/` is absent (the deployed CodeZip),
+    resolve to the bundle shipped inside the installed package (staged into `okf_bundle/`)."""
+    monkeypatch.delenv("NHIS_OKF_DIR", raising=False)
+    # Simulate a package install with no repo-relative bundle beside it.
+    monkeypatch.setattr(config, "_REPO_ROOT", tmp_path)
+    assert not (tmp_path / ".okf").exists()
+    assert config.okf_dir() == config._shipped_bundle_dir()
+
+
 def test_override_redirects_retrieval(tmp_path):
     """With NHIS_OKF_DIR set before import, retrieval reads the bundle from that directory."""
     alt = tmp_path / "bundle"

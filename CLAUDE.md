@@ -22,13 +22,16 @@ retrieval, chat, cli); concepts in `concepts/*.yaml`; the verified bundle in
 `.claude/skills/data-science/`. The next phase is planned in
 `openspec/changes/build-end-to-end-nhis-okf/`.
 
-**One agent, one deploy tree.** The AgentCore runtime runs the real
+**One agent, one deploy project.** The AgentCore runtime runs the real
 `src/nhis_okf/agentcore_app.py` (never a reimplementation) over the committed `.okf/`
-bundle. The single deploy tree is `deploy/` (CDK Lambda front + `deploy/agentcore/` runtime
-config); do not reintroduce a parallel agent or a duplicate bundle copy. Porting query-time
-compute (pandas/pyarrow + a curated parquet) into the runtime for live tables needs a
-**container** build under `deploy/agentcore/` — the CodeZip package limit is 250 MB
-compressed / 750 MB uncompressed.
+bundle. The deploy is a single AgentCore CLI project at the repo root: `agentcore/`
+(config: `agentcore.json`, `aws-targets.json`) + `app/nhis_okf_chat/` (a thin `main.py`
+re-exporting the agent + a `pyproject.toml` that installs `nhis_okf` as a dependency). Deploy
+with the `agentcore` CLI (`agentcore deploy`/`invoke`); demo is CLI-only (no web front). Do
+not reintroduce a parallel agent or a committed duplicate bundle. The runtime packages
+retrieval-only (pandas is an optional `[compute]` extra, kept out of the CodeZip); porting
+query-time compute into the runtime for live tables needs a **container** build — the CodeZip
+limit is 250 MB compressed / 750 MB uncompressed.
 
 The authoritative plan is `docs/PRODUCT.md`. Read it before substantive work; the sections
 below summarize what constrains implementation.

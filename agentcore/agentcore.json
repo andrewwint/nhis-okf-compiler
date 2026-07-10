@@ -10,8 +10,8 @@
     {
       "name": "nhis_okf_chat",
       "build": "CodeZip",
-      "entrypoint": "deploy/agentcore/app/main.py",
-      "codeLocation": "../../",
+      "entrypoint": "main.py",
+      "codeLocation": "app",
       "runtimeVersion": "PYTHON_3_12",
       "networkMode": "PUBLIC",
       "protocol": "HTTP"

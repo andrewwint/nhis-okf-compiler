@@ -20,15 +20,18 @@ __pycache__/
 # macOS
 .DS_Store
 
-# CDK / deploy synth artifacts
-deploy/infra/cdk.out/
-deploy/infra/cdk.context.json
-deploy/infra/node_modules/
+# AgentCore CLI generated / heavy / secret / build artifacts (only the hand-authored
+# config, thin shim, and app project are tracked)
+agentcore/cdk/
+agentcore/.cache/
+agentcore/node_modules/
+agentcore/.venv/
+agentcore/.env.local
+agentcore/*/staging/
+app/**/.venv/
+app/**/staging/
+app/**/*.egg-info/
 
-# AgentCore CLI generated / heavy / secret artifacts (only the hand-authored config,
-# thin shim, and requirements are tracked)
-deploy/agentcore/cdk/
-deploy/agentcore/.cache/
-deploy/agentcore/node_modules/
-deploy/agentcore/.venv/
-deploy/agentcore/.env.local
+# Vendored CodeZip payload assembled by app/build_runtime.py (src/nhis_okf + .okf are the
+# single source of truth; these copies are build artifacts, never committed).
+app/nhis_okf/
