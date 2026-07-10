@@ -4,7 +4,7 @@ title: "Ever told you had diabetes"
 description: "Weighted prevalence of diagnosed diabetes among U.S. adults, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, DIBEV_A, prevalence]
-timestamp: "2026-07-09T23:59:37Z"
+timestamp: "2026-07-10T00:16:06Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: DIBEV_A
 variable: DIBEV_A
@@ -24,7 +24,7 @@ verification:
   se_pp: 0.21
   deff: 1.41
   variance_method: taylor-linearization (design-based)
-  verified_at: 2026-07-09T23:59:37Z
+  verified_at: 2026-07-10T00:16:06Z
 ---
 
 # Ever told you had diabetes
@@ -43,6 +43,20 @@ does not estimate the U.S. adult population.
 - 95% CI: [9.39, 10.20] (design-based, Taylor linearization; SE 0.21pp; DEFF 1.41)
 - Basis: 9.80% (95% CI 9.39-10.20; design-based SE 0.21pp, DEFF 1.41)
 - Verification: executed against NHIS 2023 Sample Adult public-use file (adult23.csv); verdict **PASS**.
+
+## Reproduce
+
+Weighted, verified figure (aggregate only — the number to cite):
+
+```bash
+nhis analyze --variable DIBEV_A
+```
+
+Raw row inspection (unweighted, not verified — for sanity-checking only; see the [tool reference](../references/parquet_query.md)):
+
+```bash
+nhis rows --columns "DIBEV_A" --limit 10
+```
 
 ## Related
 - [DIBINS_A](./DIBINS_A.md)

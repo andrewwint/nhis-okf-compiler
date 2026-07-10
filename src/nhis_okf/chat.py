@@ -32,7 +32,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SAFETY = (
     "This tool explores public, de-identified, aggregate survey data (CDC NHIS 2023). "
     "It is not medical advice and makes no individual-level inference. Every figure is "
-    "survey-weighted and cited to its source variable."
+    "survey-weighted and cited to its source variable. (Raw row inspection of the "
+    "public-use microdata is a separate, local `nhis rows` researcher tool — it is never "
+    "reachable here, and its unweighted rows are not population estimates.)"
 )
 
 # Per-invocation cost guardrails (the public endpoint has no auth — these bound spend).
@@ -52,7 +54,8 @@ Hard rules:
 - If the tool returns nothing relevant, say you cannot answer from the verified bundle. Do
   NOT invent or estimate a number, and do not use outside knowledge for figures.
 - These are public, aggregate survey estimates. This is not medical advice; make no
-  individual-level inference and give no clinical recommendation.
+  individual-level inference and give no clinical recommendation. You only ever see
+  verified aggregates — you cannot access or return individual survey records.
 - Be concise and factual. State the survey-weighted basis (the denominator/universe) with
   any figure.
 """

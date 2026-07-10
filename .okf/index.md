@@ -2,7 +2,7 @@
 type: index
 title: "NHIS 2023 diabetes — verified OKF bundle"
 description: "Execution-verified NHIS 2023 diabetes concepts; progressive entry point."
-timestamp: "2026-07-09T23:59:37Z"
+timestamp: "2026-07-10T00:16:06Z"
 ---
 
 # NHIS 2023 diabetes — verified OKF bundle

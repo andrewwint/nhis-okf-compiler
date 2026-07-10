@@ -11,12 +11,31 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import analysis, concepts as concepts_mod, verify as verify_mod, trends as trends_mod, registry
+from . import (
+    analysis,
+    concepts as concepts_mod,
+    verify as verify_mod,
+    trends as trends_mod,
+    registry,
+    parquet_query,
+)
 from .compiler import compile_bundle, check_conformance, _split_frontmatter, OKF_DIR, VARIABLES_DIR
 
 SAFETY = (
     "Public, de-identified, aggregate CDC NHIS survey data — not medical advice, no "
     "individual-level inference. Every figure is survey-weighted and design-based."
+)
+
+# Printed before every `nhis rows` result. Raw rows are the one non-aggregate surface, so
+# the caveat is mandatory and loud: these records are not a population estimate.
+ROWS_CAVEAT = (
+    "=" * 78 + "\n"
+    "RAW MICRODATA ROWS — NOT a population estimate, NOT verified.\n"
+    "These are individual, UNWEIGHTED records from the public-use, de-identified NHIS\n"
+    "file, shown for research inspection only. Without survey weights they do NOT\n"
+    "estimate the U.S. population — do not read a rate or count off of them.\n"
+    "For a weighted, verified figure use `nhis analyze`.\n"
+    + "=" * 78
 )
 
 # Columns the diabetes slice needs (keeps the 29MB load fast).
@@ -162,6 +181,33 @@ def cmd_conformance(_args) -> int:
     return 1
 
 
+def cmd_rows(args) -> int:
+    # Researcher tool: the ONE surface that returns raw individual rows (see parquet_query).
+    columns = [c.strip() for c in (args.columns or "").split(",") if c.strip()]
+    if not columns:
+        print(
+            "refused: --columns is required and must name at least one column "
+            "(no accidental full-width dump).",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        rows = parquet_query.query_rows(
+            columns, universe_expr=args.universe, limit=args.limit
+        )
+    except Exception as exc:
+        print(f"could not query rows: {exc}", file=sys.stderr)
+        return 1
+    # Loud caveat header on EVERY call, printed BEFORE the rows.
+    print(ROWS_CAVEAT)
+    print()
+    print(rows.to_string(index=False))
+    effective = min(args.limit, parquet_query.HARD_MAX_LIMIT)
+    print(f"\n{len(rows)} row(s) shown (limit {effective}, hard max "
+          f"{parquet_query.HARD_MAX_LIMIT}).")
+    return 0
+
+
 def cmd_query(args) -> int:
     from .chat import answer
 
@@ -196,6 +242,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--stat", default="prevalence", choices=["prevalence", "mean", "quantile"],
     )
     a.add_argument("--q", type=float, default=0.5, help="quantile probability (for --stat quantile)")
+    r = sub.add_parser(
+        "rows",
+        help="researcher tool: RAW, UNWEIGHTED public-use rows (a few columns) — not "
+        "verified, not a population estimate; use `nhis analyze` for weighted figures",
+    )
+    r.add_argument(
+        "--columns", required=True,
+        help=f"comma-separated column list (required; at most "
+        f"{parquet_query.MAX_COLUMNS}), e.g. 'DIBEV_A,DIBINS_A,SEX_A'",
+    )
+    r.add_argument(
+        "--universe", default=None,
+        help="optional pandas row filter, e.g. 'DIBEV_A == 1'",
+    )
+    r.add_argument(
+        "--limit", type=int, default=parquet_query.DEFAULT_LIMIT,
+        help=f"max rows to show (default {parquet_query.DEFAULT_LIMIT}, hard max "
+        f"{parquet_query.HARD_MAX_LIMIT})",
+    )
     return p
 
 
@@ -210,6 +275,7 @@ def main(argv=None) -> int:
         "trends": cmd_trends,
         "query": cmd_query,
         "analyze": cmd_analyze,
+        "rows": cmd_rows,
     }[args.command](args)
 
 

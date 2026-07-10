@@ -4,7 +4,7 @@ title: "Age first told had diabetes (top-coded)"
 description: "Weighted mean age first told had diabetes among U.S. adults with diagnosed diabetes, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, DIBAGETC_A, mean]
-timestamp: "2026-07-09T23:59:37Z"
+timestamp: "2026-07-10T00:16:06Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: DIBAGETC_A
 variable: DIBAGETC_A
@@ -23,7 +23,7 @@ verification:
   claimed_pct: 47.41
   delta_pp: 0.0
   detail: "47.41 (95% CI 46.75-48.08; design-based SE 0.34)"
-  verified_at: 2026-07-09T23:59:37Z
+  verified_at: 2026-07-10T00:16:06Z
 ---
 
 # Age first told had diabetes (top-coded)
@@ -44,6 +44,20 @@ required: skipping either shifts the number in a way execution catches.
 
 - Basis: 47.41 (95% CI 46.75-48.08; design-based SE 0.34)
 - Verification: executed against NHIS 2023 Sample Adult public-use file (adult23.csv); verdict **PASS**.
+
+## Reproduce
+
+Weighted, verified figure (aggregate only — the number to cite):
+
+```bash
+nhis analyze --variable DIBAGETC_A --universe "DIBEV_A == 1" --stat mean
+```
+
+Raw row inspection (unweighted, not verified — for sanity-checking only; see the [tool reference](../references/parquet_query.md)):
+
+```bash
+nhis rows --columns "DIBEV_A,DIBAGETC_A" --universe "DIBEV_A == 1" --limit 10
+```
 
 ## Related
 - [DIBEV_A](./DIBEV_A.md)

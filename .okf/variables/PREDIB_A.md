@@ -4,7 +4,7 @@ title: "Ever told you had prediabetes"
 description: "PREDIB_A records whether a sample adult was ever told they had prediabetes or borderline diabetes."
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, PREDIB_A]
-timestamp: "2026-07-09T23:59:37Z"
+timestamp: "2026-07-10T00:16:06Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: PREDIB_A
 variable: PREDIB_A
@@ -14,7 +14,7 @@ source: "NHIS 2023 Sample Adult public-use file (adult23.csv)"
 verification:
   verdict: DESCRIPTIVE
   method: execution-grounded
-  verified_at: 2026-07-09T23:59:37Z
+  verified_at: 2026-07-10T00:16:06Z
 ---
 
 # Ever told you had prediabetes
