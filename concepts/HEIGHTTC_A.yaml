@@ -1,0 +1,28 @@
+id: HEIGHTTC_A
+variable: HEIGHTTC_A
+label: "Height without shoes (inches, top-coded)"
+analytical_universe: null
+# Analytical concept: a survey-weighted MEAN in inches (not a percentage). The verifier
+# recomputes it the registry-correct way — weighted by WTFA_A over all sample adults, with
+# the non-substantive codes (96-99) dropped via the registry valid_codes — and compares
+# within tolerance in inches.
+claim:
+  statistic: "Weighted mean height of U.S. adults, 2023"
+  kind: mean
+  unit: in
+  method:
+    universe_expr: null
+    weighted: true
+  value: 66.82
+  tolerance: 0.5
+links: [WEIGHTLBTC_A]
+prose: |
+  HEIGHTTC_A is self-reported height without shoes in inches, asked of all sample adults.
+  Codes 96-99 are non-substantive (not ascertained / refused / don't know) and must be
+  dropped before any height analysis — leaving them in treats them as ~96-inch observations
+  and inflates the mean. Any mean over this variable must be survey-weighted (WTFA_A) over the
+  whole adult sample.
+
+  The headline claim is the survey-weighted mean height of U.S. adults in 2023. Dropping the
+  96-99 codes and applying the survey weights are both required: skipping either shifts the
+  number in a way execution catches. Related body measure: [[WEIGHTLBTC_A]].

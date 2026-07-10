@@ -4,7 +4,7 @@ title: "Ever told you had high blood pressure"
 description: "Weighted prevalence of diagnosed hypertension among U.S. adults, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, HYPEV_A, prevalence]
-timestamp: "2026-07-09T23:24:49Z"
+timestamp: "2026-07-09T23:59:37Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: HYPEV_A
 variable: HYPEV_A
@@ -24,7 +24,7 @@ verification:
   se_pp: 0.35
   deff: 1.64
   variance_method: taylor-linearization (design-based)
-  verified_at: 2026-07-09T23:24:49Z
+  verified_at: 2026-07-09T23:59:37Z
 ---
 
 # Ever told you had high blood pressure

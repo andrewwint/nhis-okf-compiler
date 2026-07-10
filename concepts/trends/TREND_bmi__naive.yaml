@@ -1,0 +1,26 @@
+id: TREND_bmi__naive
+canonical: bmi
+years: [2018, 2023]
+title: "Mean BMI trend, 2018 vs 2023 (NAIVE recode join — seeded defect)"
+seeded_defect: true
+claim:
+  statistic: "Mean body-mass index among U.S. adults, 2018 vs 2023"
+  method:
+    # WRONG: joins 2018 BMI (a continuous value stored x100) to 2023 BMICAT_A (a 1-4 category)
+    # as if they were the same measure. Both columns exist, so the rename-gap check passes —
+    # but the encodings are incompatible and the "trend" is a scale/units mismatch.
+    per_year_variable: {2018: BMI, 2023: BMICAT_A}
+    weighted: true
+  values_pct: {2018: 28.14, 2023: 2.55}
+  tolerance_pct: 0.3
+links: [WEIGHTLBTC_A]
+prose: |
+  Mean body-mass index among U.S. adults appeared to fall sharply from about 28.1 in 2018 to
+  about 2.6 in 2023, computed by averaging each year's `BMI` measure.
+
+  (This concept is intentionally seeded. Its markdown is clean and its link resolves. It is
+  still wrong: the 2019 redesign recoded BMI from a continuous value stored x100 (integer 2814
+  = BMI 28.1) into a 1-4 category (`BMICAT_A`). Both columns exist, so a rename-gap check
+  passes — but averaging a continuous ×100 value against a 1-4 category is a scale/units
+  mismatch, and there is no comparable mean-BMI trend to publish. A link-checker passes this;
+  executing the per-year computation detects the incompatible encoding and refuses it.)

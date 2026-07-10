@@ -4,7 +4,7 @@ title: "Age first told had diabetes (top-coded)"
 description: "Weighted mean age first told had diabetes among U.S. adults with diagnosed diabetes, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, DIBAGETC_A, mean]
-timestamp: "2026-07-09T23:24:49Z"
+timestamp: "2026-07-09T23:59:37Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: DIBAGETC_A
 variable: DIBAGETC_A
@@ -23,7 +23,7 @@ verification:
   claimed_pct: 47.41
   delta_pp: 0.0
   detail: "47.41 (95% CI 46.75-48.08; design-based SE 0.34)"
-  verified_at: 2026-07-09T23:24:49Z
+  verified_at: 2026-07-09T23:59:37Z
 ---
 
 # Age first told had diabetes (top-coded)

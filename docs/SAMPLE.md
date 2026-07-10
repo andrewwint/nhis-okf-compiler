@@ -105,6 +105,22 @@ DIBAGETC_A quantile (q=0.5): 50.00 (95% CI 48.00-50.00; design-based SE 0.01; we
   WTFA_A; universe: DIBEV_A == 1; n=3170 unweighted, denominator 24,498,399 weighted)
 ```
 
+## Sex-stratified subpopulation
+
+The same query surface stratifies by any loaded column with **no engine change** — here the
+survey-weighted **mean weight** of U.S. adults by sex (`SEX_A`: 1 = male, 2 = female). Each
+call returns an aggregate estimate and its design-based CI, never any individual rows:
+
+```
+$ nhis analyze --variable WEIGHTLBTC_A --universe "SEX_A == 1" --stat mean
+WEIGHTLBTC_A mean: 195.00 (95% CI 194.20-195.81; design-based SE 0.41; weighted by WTFA_A;
+  universe: SEX_A == 1; n=12438 unweighted, denominator 115,446,875 weighted)
+
+$ nhis analyze --variable WEIGHTLBTC_A --universe "SEX_A == 2" --stat mean
+WEIGHTLBTC_A mean: 162.68 (95% CI 161.90-163.47; design-based SE 0.40; weighted by WTFA_A;
+  universe: SEX_A == 2; n=14599 unweighted, denominator 120,035,788 weighted)
+```
+
 ## Refusals (grounded-or-refuse, and no fabricated numbers)
 
 A variable with no verified concept is refused, and the message lists what is available:

@@ -1,0 +1,28 @@
+id: WEIGHTLBTC_A
+variable: WEIGHTLBTC_A
+label: "Weight without shoes (pounds, top-coded)"
+analytical_universe: null
+# Analytical concept: a survey-weighted MEAN in pounds (not a percentage). The verifier
+# recomputes it the registry-correct way — weighted by WTFA_A over all sample adults, with
+# the non-substantive top-codes (996-999) dropped via the registry valid_codes — and compares
+# within tolerance in pounds.
+claim:
+  statistic: "Weighted mean weight of U.S. adults, 2023"
+  kind: mean
+  unit: lbs
+  method:
+    universe_expr: null
+    weighted: true
+  value: 178.53
+  tolerance: 0.5
+links: [HEIGHTTC_A]
+prose: |
+  WEIGHTLBTC_A is self-reported weight without shoes in pounds, asked of all sample adults
+  and top-coded at 299. Codes 996-999 are non-substantive (not ascertained / refused / don't
+  know) and must be dropped before any weight analysis — leaving them in treats them as
+  ~1000-pound observations and badly inflates the mean. Any mean over this variable must be
+  survey-weighted (WTFA_A) over the whole adult sample.
+
+  The headline claim is the survey-weighted mean weight of U.S. adults in 2023. Dropping the
+  996-999 codes and applying the survey weights are both required: skipping either shifts the
+  number in a way execution catches. Related body measure: [[HEIGHTTC_A]].

@@ -1,0 +1,27 @@
+id: HEIGHTTC_A__rawcodes
+variable: HEIGHTTC_A
+label: "Mean adult height (RAW CODES retained — seeded defect)"
+seeded_defect: true
+# The claim TARGETS the mean adult height, but the method RETAINS the non-substantive codes
+# (96-99). Treated as ~96-inch values, they inflate the survey-weighted mean from the correct
+# 66.82 in to 69.05 in.
+analytical_universe: null
+claim:
+  statistic: "Mean height of U.S. adults, 2023"
+  kind: mean
+  unit: in
+  method:
+    universe_expr: null
+    weighted: true
+  value: 69.05
+  tolerance: 0.5
+links: [WEIGHTLBTC_A]
+prose: |
+  In the 2023 National Health Interview Survey, U.S. adults were an average of 69.05 inches
+  tall. The figure is the survey-weighted mean of the HEIGHTTC_A item over all sample adults.
+
+  (This concept is intentionally seeded. Its markdown is well-formed and its link resolves,
+  and you can reproduce 69.05 exactly by weighting HEIGHTTC_A without dropping the 96-99 codes.
+  It is still wrong: those codes are non-substantive placeholders, not ~96-inch people, and
+  retaining them inflates the mean. A link-checker passes it; execution-grounded verification
+  does not — the correct weighted mean is 66.82 in.)

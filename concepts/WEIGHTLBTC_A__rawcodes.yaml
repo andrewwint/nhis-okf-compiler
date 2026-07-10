@@ -1,0 +1,28 @@
+id: WEIGHTLBTC_A__rawcodes
+variable: WEIGHTLBTC_A
+label: "Mean adult weight (RAW CODES retained — seeded defect)"
+seeded_defect: true
+# The claim TARGETS the mean adult weight, but the method RETAINS the non-substantive
+# top-codes (996-999). Treated as ~1000-pound values, they inflate the survey-weighted mean
+# from the correct 178.53 lbs to 250.59 lbs.
+analytical_universe: null
+claim:
+  statistic: "Mean weight of U.S. adults, 2023"
+  kind: mean
+  unit: lbs
+  method:
+    universe_expr: null
+    weighted: true
+  value: 250.59
+  tolerance: 0.5
+links: [HEIGHTTC_A]
+prose: |
+  In the 2023 National Health Interview Survey, U.S. adults weighed an average of 250.59
+  pounds. The figure is the survey-weighted mean of the WEIGHTLBTC_A item over all sample
+  adults.
+
+  (This concept is intentionally seeded. Its markdown is well-formed and its link resolves,
+  and you can reproduce 250.59 exactly by weighting WEIGHTLBTC_A without dropping the 996-999
+  codes. It is still wrong: those codes are non-substantive placeholders, not ~1000-pound
+  people, and retaining them inflates the mean. A link-checker passes it; execution-grounded
+  verification does not — the correct weighted mean is 178.53 lbs.)

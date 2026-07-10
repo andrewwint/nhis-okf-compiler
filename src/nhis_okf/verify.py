@@ -133,7 +133,12 @@ def _diagnose_continuous(df: pd.DataFrame, concept: Concept, correct_value: floa
         )
 
     claimed = concept.value_pct
-    # Did the author forget to drop the non-substantive codes (e.g. 96-99)?
+    # Did the author forget to drop the non-substantive codes? Probe the "retained all codes"
+    # variant using the codes actually present in the data (not a fixed 0-99 range), so it
+    # covers whatever non-substantive band this variable uses — 96-99 for age/height, but
+    # 996-999 for weight — and can name the specific retained codes.
+    observed = tuple(sorted(int(v) for v in df[concept.variable].dropna().unique()))
+    retained = tuple(c for c in observed if c not in var.valid_codes)
     if concept.kind == "mean":
         unweighted = weighted_mean(
             df, concept.variable, universe_expr=universe,
@@ -141,7 +146,7 @@ def _diagnose_continuous(df: pd.DataFrame, concept: Concept, correct_value: floa
         ).value
         not_dropped = weighted_mean(
             df, concept.variable, universe_expr=universe,
-            valid_codes=tuple(range(0, 100)), weighted=True, weight_var=var.weight,
+            valid_codes=observed, weighted=True, weight_var=var.weight,
         ).value
     else:
         q = concept.quantile_q if concept.quantile_q is not None else 0.5
@@ -151,7 +156,7 @@ def _diagnose_continuous(df: pd.DataFrame, concept: Concept, correct_value: floa
         ).value
         not_dropped = weighted_quantile(
             df, concept.variable, q, universe_expr=universe,
-            valid_codes=tuple(range(0, 100)), weighted=True, weight_var=var.weight,
+            valid_codes=observed, weighted=True, weight_var=var.weight,
         ).value
 
     # Attribute to the single flawed variant that best reproduces the claim. Both variants
@@ -163,7 +168,8 @@ def _diagnose_continuous(df: pd.DataFrame, concept: Concept, correct_value: floa
             f"not the survey-weighted one ({correct_value:.2f})"
         ),
         "not_dropped": (
-            f"claim ({claimed}) retains non-substantive codes (>=96); dropping them via "
+            f"claim ({claimed}) retains non-substantive codes "
+            f"({', '.join(map(str, retained)) or 'outside valid_codes'}); dropping them via "
             f"the registry valid_codes gives {correct_value:.2f}"
         ),
     }

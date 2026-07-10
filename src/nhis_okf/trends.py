@@ -67,7 +67,7 @@ def correct_trend(canonical: str, years: list[int]) -> dict[int, PrevalenceResul
     """Weighted prevalence per year, each resolved to its correct variable + weight."""
     out: dict[int, PrevalenceResult] = {}
     for y in years:
-        var, weight, valid, affirmative = _resolve(canonical, y)
+        var, weight, valid, affirmative, _encoding = _resolve(canonical, y)
         df = load_table(year_csv(y), columns=[var, weight])
         out[y] = compute_prevalence(
             df, var, universe_expr=None, affirmative_codes=affirmative,
@@ -137,6 +137,78 @@ def load_trends(trends_dir: Path = TRENDS_DIR) -> list[TrendConcept]:
     return out
 
 
+# --- encoding-compatibility guard (the BMI recode catch) ------------------------------
+#
+# A rename gap catches a variable that is *absent* in a year. It cannot catch a *silent
+# recode*: the 2019 redesign kept a "BMI" column both years but changed its meaning from a
+# continuous value (x100) to a 1-4 category. Both columns exist, the markdown is clean — but
+# joining them across the redesign is a scale/units mismatch, not a trend. This guard reads
+# each year's resolved column, confirms its substantive value domain empirically, and refuses
+# the join when the encodings are incompatible. There is no valid mean-BMI trend to publish,
+# so the correct outcome is refusal, not a computed series.
+
+# A substantive domain is "categorical" when it is a handful of small integer codes; anything
+# wider is treated as continuous. BMICAT_A (1-4) is categorical; BMI x100 (~1000-9998) is not.
+_CATEGORICAL_MAX_CARDINALITY = 12
+_CATEGORICAL_MAX_VALUE = 20
+
+
+@dataclass
+class _Domain:
+    encoding: str  # "categorical" | "continuous"
+    lo: float
+    hi: float
+    cardinality: int
+
+
+def _empirical_domain(canonical: str, year: int) -> _Domain:
+    """Read a year's resolved column and describe its substantive value domain."""
+    var, _weight, valid, _affirmative, declared = _resolve(canonical, year)
+    df = load_table(year_csv(year), columns=[var])
+    vals = df[var]
+    substantive = vals[vals.isin(valid)]
+    if substantive.empty:  # nothing to judge — fall back to the declared encoding
+        return _Domain(declared, float("nan"), float("nan"), 0)
+    cardinality = int(substantive.nunique())
+    lo, hi = float(substantive.min()), float(substantive.max())
+    is_categorical = cardinality <= _CATEGORICAL_MAX_CARDINALITY and hi <= _CATEGORICAL_MAX_VALUE
+    return _Domain("categorical" if is_categorical else "continuous", lo, hi, cardinality)
+
+
+def _encoding_incompatible(concept: TrendConcept) -> list[str]:
+    """Diagnose an incompatible cross-year encoding (empty list == compatible).
+
+    Incompatible when the years' substantive domains have different encodings
+    (categorical vs continuous) or do not overlap. Compatible domains (e.g. DIBEV1 {1,2,3}
+    vs DIBEV_A {1,2}, both small categorical and overlapping) return no diagnosis, so the
+    valid prevalence path runs unchanged.
+    """
+    if concept.canonical not in registry.CROSS_YEAR:
+        return []
+    domains = {y: _empirical_domain(concept.canonical, y) for y in concept.years}
+    encodings = {d.encoding for d in domains.values()}
+    lo = max(d.lo for d in domains.values())
+    hi = min(d.hi for d in domains.values())
+    disjoint = lo > hi  # the per-year ranges do not overlap at all
+    if len(encodings) == 1 and not disjoint:
+        return []
+
+    def _describe(y: int) -> str:
+        d = domains[y]
+        var = _resolve(concept.canonical, y)[0]
+        return (
+            f"{y} {var!r} is {d.encoding} (substantive values {d.lo:g}-{d.hi:g}, "
+            f"{d.cardinality} distinct)"
+        )
+
+    lead = ", ".join(_describe(y) for y in concept.years)
+    return [
+        f"scale/units mismatch: {lead}. The 2019 redesign recoded this measure across an "
+        f"incompatible encoding, so the join is not comparable and no trend can be published "
+        f"(the correct outcome is refusal, not a computed series)."
+    ]
+
+
 def verify_trend(concept: TrendConcept) -> TrendVerifyResult:
     lint_ok = bool(concept.prose.strip()) and concept.canonical in registry.CROSS_YEAR
     diagnosis: list[str] = []
@@ -156,7 +228,25 @@ def verify_trend(concept: TrendConcept) -> TrendVerifyResult:
                 f"drops {y}, producing a broken trend."
             )
 
-    # 2) Value check against the correct, rename-aware computation.
+    # 2) Encoding-compatibility guard — runs BEFORE the value check and short-circuits.
+    #    A mean-BMI join across the continuous->categorical recode has no affirmative codes
+    #    to prevalence-compute, so it must fail here rather than fall through to a path that
+    #    would return a spurious 0.0. Compatible encodings (the diabetes rename) pass through.
+    encoding_diag = _encoding_incompatible(concept)
+    if encoding_diag:
+        diagnosis += encoding_diag
+        return TrendVerifyResult(
+            concept_id=concept.id,
+            verdict=FAIL,
+            lint_ok=lint_ok,
+            statistic=concept.statistic,
+            correct={},
+            claimed=concept.values_pct,
+            diagnosis=diagnosis,
+            seeded_defect=concept.seeded_defect,
+        )
+
+    # 3) Value check against the correct, rename-aware computation.
     correct = correct_trend(concept.canonical, concept.years)
     correct_pct = {y: round(r.value_pct, 2) for y, r in correct.items()}
     for y in concept.years:

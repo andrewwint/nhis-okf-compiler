@@ -4,7 +4,7 @@ title: "Diagnosed diabetes prevalence, 2018 vs 2023"
 description: "Weighted prevalence of diagnosed diabetes among U.S. adults, 2018 vs 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis, diabetes, trend, 2018, 2023]
-timestamp: "2026-07-09T23:24:49Z"
+timestamp: "2026-07-09T23:59:37Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: TREND_diabetes_2018_2023
 canonical: diabetes_ever
@@ -15,7 +15,7 @@ verification:
   verdict: PASS
   method: execution-grounded (cross-year)
   correct_pct: {2018: 10.09, 2023: 9.8}
-  verified_at: 2026-07-09T23:24:49Z
+  verified_at: 2026-07-09T23:59:37Z
 links: [DIBEV_A]
 ---
 
