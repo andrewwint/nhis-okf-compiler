@@ -72,6 +72,46 @@ Runtime gotchas (AgentCore): ephemeral filesystem (the shipped bundle is read-on
 don't write to disk), 15-minute synchronous cap (one Q&A is tiny), 25 TPS default quota,
 keep Bedrock in us-east-1.
 
+### Packaging the retrieval-only CodeZip
+
+The hand-authored CLI project lives in `deploy/agentcore/` (schema confirmed against the
+installed `@aws/agentcore` CLI with `agentcore validate` → **Valid**):
+
+```
+deploy/agentcore/
+  agentcore.json      # build CodeZip, protocol HTTP, runtimeVersion PYTHON_3_12, one runtime
+  aws-targets.json    # []  (empty — no account/region committed)
+  app/main.py         # thin shim: sets retrieval mode + NHIS_OKF_DIR, re-exports the agent
+  requirements.txt    # retrieval-only deps (NO pandas)
+```
+
+In `agentcore.json`, the runtime uses `codeLocation: "../../"` (the repo root) and
+`entrypoint: "deploy/agentcore/app/main.py"`, so the CodeZip preserves the repo tree and
+carries both `src/nhis_okf/` and `.okf/`.
+
+`app/main.py` does **not** reimplement the agent. It (1) puts the shipped `src/` on
+`sys.path` so `import nhis_okf` resolves, (2) sets `NHIS_RUNTIME_TOOLS=retrieval` (only
+`search_verified_okf` is registered — pandas/analysis stay out), (3) sets `NHIS_OKF_DIR` to
+the bundled `.okf/`, then re-exports `nhis_okf.agentcore_app.app`.
+
+The CodeZip root therefore carries three things the runtime needs at import/answer time:
+
+- `deploy/agentcore/app/main.py` — the entrypoint shim,
+- `src/nhis_okf/` — the agent source (imported directly, **not** pip-installed, so pandas is
+  never pulled in), and
+- `.okf/` — the verified bundle retrieval reads.
+
+`NHIS_OKF_DIR` points the runtime at that bundled `.okf/`; with it unset the code falls back
+to the repo-relative `.okf/`, so local runs are unchanged. Keep the assembled zip ≤ 250 MB
+(sklearn is the largest dep — note sklearn imports pandas only *if present*, and this runtime
+does not install it, so sklearn runs pandas-free); if it is over, drop sklearn for the
+pure-Python cosine or switch to `--build Container`.
+
+Local smoke test (no AWS): with `NHIS_RUNTIME_TOOLS=retrieval` and `NHIS_OKF_DIR=.okf`, the
+retrieval-only agent builds with a single tool and `chat.answer(..., generative=False)`
+returns the verified figure — and importing that path does not import pandas. See
+`tests/test_runtime_retrieval.py`.
+
 ## 2. Deploy the public endpoint (CDK)
 ```bash
 cd deploy/infra

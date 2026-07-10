@@ -20,7 +20,12 @@ import yaml
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from .compiler import VARIABLES_DIR
+from . import config
+
+# Resolve the bundle location from config (env `NHIS_OKF_DIR`, default repo-relative `.okf/`)
+# rather than from `compiler` — importing `compiler` here would drag pandas into the
+# retrieval-only runtime path, which must stay pandas-free.
+VARIABLES_DIR = config.okf_dir() / "variables"
 
 
 @dataclass

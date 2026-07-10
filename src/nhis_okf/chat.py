@@ -26,7 +26,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from . import analysis, config
+from . import config
 from .retrieval import Retriever, Hit, verified_variables
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -142,7 +142,12 @@ def _microdata():
 
     Full table (all columns) so an ad-hoc universe may reference any verified variable and
     the registry's weight/design columns. Prefers the parquet twin, so this is cheap.
+
+    `analysis` (and thus pandas) is imported lazily here so the retrieval-only path — the
+    packaged AgentCore runtime — never drags pandas into the CodeZip.
     """
+    from . import analysis
+
     return analysis.load_microdata()
 
 
@@ -166,6 +171,8 @@ def analyze_subpopulation(
             f"bundle, so no grounded figure can be computed. Verified variables: "
             f"{', '.join(sorted(allowed)) or '(none compiled)'}."
         )
+    from . import analysis
+
     try:
         res = analysis.subpopulation_stat(
             _microdata(), variable, universe_expr=universe, stat=stat, q=q
@@ -198,6 +205,8 @@ def groupby_table(
             f"bundle, so no grounded table can be computed. Verified variables: "
             f"{', '.join(sorted(allowed)) or '(none compiled)'}."
         )
+    from . import analysis
+
     try:
         table = analysis.groupby_table(
             _microdata(), variable, groupby, stat=stat, q=q, extra_universe=universe
@@ -208,14 +217,21 @@ def groupby_table(
 
 
 def _as_tools():
-    """Wrap the agent's three deterministic tools as Strands tools (imported lazily).
+    """Wrap the agent's deterministic tools as Strands tools (imported lazily).
 
     All grounded: retrieval over the verified bundle, a deterministic weighted subpopulation
     computation, and a deterministic weighted by-group table — each restricted to verified
     variables. None can reach raw rows.
+
+    When `NHIS_RUNTIME_TOOLS == "retrieval"` only the retrieval tool is registered. That is
+    the packaged AgentCore runtime mode: it keeps the runtime pandas-free (the two compute
+    tools import `analysis`/pandas lazily and are simply not wired up). Any other value
+    (including unset) registers all three tools — unchanged local behavior.
     """
     from strands import tool
 
+    if os.environ.get("NHIS_RUNTIME_TOOLS") == "retrieval":
+        return [tool(search_verified_okf)]
     return [tool(search_verified_okf), tool(analyze_subpopulation), tool(groupby_table)]
 
 
