@@ -15,9 +15,12 @@ data only — not medical advice.
 
 ## How it works
 
-The chat agent (Bedrock AgentCore) is the only end-user surface. Every query passes through a
-verification funnel: the agent has **two deterministic tools** and no other window onto the
-data — never raw rows.
+The chat agent is the end-user surface. Every **figure** passes through a verification funnel.
+The **deployed** (Bedrock AgentCore) agent answers only from verified aggregates and never
+touches raw rows — it registers no row tool and stays pandas-free. The **local** agent adds one
+bounded, explicitly caveated tool, `inspect_rows`, that returns a few RAW, UNWEIGHTED public-use
+records for inspection *alongside each column's verified OKF summary* (label, valid codes,
+universe/skip-pattern); those rows are not population estimates and no rate may be read off them.
 
 ```
 [ user query ]
@@ -51,8 +54,31 @@ build an index entry for it — grounding is enforced by what exists, not by pro
 `analyze_subpopulation` extends that guarantee from compile-time to query-time: it is not an
 LLM-guessed number but the same deterministic, weights-mandatory computation the verifier runs,
 restricted to verified variables and returning aggregates only. It refuses (never fabricates)
-for an unverified variable or an empty subpopulation. The raw-row researcher tool
-(`nhis rows`) is **never** an agent tool — the agent cannot reach individual records.
+for an unverified variable or an empty subpopulation. Raw public-use rows are reachable only
+through the local `nhis rows` CLI and the **local** agent's bounded `inspect_rows` tool — capped,
+caveated, and paired with each column's verified OKF summary, with the agent-supplied universe
+**allow-list validated** (only `COLUMN <op> NUMBER` joined by `& | ( )` over known columns)
+before it can reach `df.eval`. Those rows are unweighted and are not population estimates, and
+figures never come off them. The **deployed** (retrieval-mode) agent registers no row tool and
+stays aggregate-only and pandas-free.
+
+Row inspection is a deliberate, local capability under test (does the OKF bundle's column
+summaries let an agent explain the raw rows it returns?). Real local run:
+
+```
+$ nhis query "show me a few rows of insulin use among diabetics and what those columns mean"
+Tool #1: inspect_rows
+[generative] Here are 10 raw, unweighted public-use NHIS microdata rows filtered to adults
+ever told they had diabetes (DIBEV_A == 1):
+  ⚠️ These are individual, unweighted records — they are NOT population estimates ...
+  DIBEV_A — Ever told you had diabetes (valid 1,2; asked of all sample adults)
+  DIBINS_A — Currently takes insulin (valid 1,2; asked of DIBEV_A==1 or PREDIB_A==1;
+             the clinically meaningful denominator is DIBEV_A == 1)
+Would you like a survey-weighted figure instead? ...
+```
+
+The agent shows the caveated rows, explains the columns from the verified OKF summaries, and
+offers a weighted figure rather than reading a rate off the raw rows.
 
 ## Zero-database RAG
 

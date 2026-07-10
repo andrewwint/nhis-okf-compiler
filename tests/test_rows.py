@@ -93,7 +93,8 @@ def test_unknown_column_errors(df):
         parquet_query.query_rows(["NOPE_NOT_A_COLUMN"])
 
 
-# --- Boundary: the verified product and deployed agent cannot reach the row tool ----------
+# --- Boundary: the DEPLOYED (retrieval) agent stays row-free; the LOCAL agent's row tool
+#     is capped + caveated (the approved, re-expressed invariant) ---------------------------
 
 def test_analyze_path_stays_aggregate_only(df):
     # subpopulation_stat returns a scalar aggregate, never a row set.
@@ -102,12 +103,59 @@ def test_analyze_path_stays_aggregate_only(df):
     assert not hasattr(res, "iterrows")
 
 
-def test_agent_modules_do_not_import_row_tool():
-    """The deployed grounded agent must be structurally unable to emit rows: neither
-    chat.py nor agentcore_app.py may import the row-query tool."""
-    assert "parquet_query" not in inspect.getsource(chat), "chat.py must not reference parquet_query"
-    assert not hasattr(chat, "parquet_query")
+def test_deployed_retrieval_agent_stays_row_free_and_pandas_free():
+    """Re-expressed boundary (deploy stays aggregate-only): in RETRIEVAL mode the agent has
+    NO row tool, and importing that path pulls in neither `parquet_query` nor our
+    pandas-bearing `analysis`/`compiler`. The deploy entrypoint (agentcore_app.py) never
+    references the row tool at all. Run in a fresh subprocess so prior imports don't taint it.
+    """
+    import subprocess
+    import sys
+
     assert "parquet_query" not in _AGENT_SRC, "agentcore_app.py must not reference parquet_query"
+    # chat.py may reference parquet_query, but ONLY lazily inside the tool body — never as a
+    # module-level import (which would bind chat.parquet_query and load pandas eagerly).
+    assert not hasattr(chat, "parquet_query")
+
+    code = (
+        "import os, sys\n"
+        "os.environ['NHIS_RUNTIME_TOOLS'] = 'retrieval'\n"
+        "from nhis_okf import chat\n"
+        "tools = chat._as_tools()\n"
+        "assert len(tools) == 1, tools  # only the retrieval tool, no row tool\n"
+        "assert 'nhis_okf.parquet_query' not in sys.modules, 'parquet_query imported'\n"
+        "assert 'nhis_okf.analysis' not in sys.modules, 'analysis (pandas) imported'\n"
+        "print('OK')\n"
+    )
+    res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+    assert res.stdout.strip() == "OK"
+
+
+def test_default_mode_row_tool_is_present_capped_and_caveated(df):
+    """In DEFAULT (local) mode the `inspect_rows` tool IS registered, and its output is
+    capped to the limit and carries the mandatory raw/unweighted caveat plus each returned
+    column's OKF summary — a fabricated meaning is never emitted."""
+    names = {
+        getattr(t, "tool_name", None) or getattr(t, "__name__", None)
+        for t in chat._as_tools()
+    }
+    assert "inspect_rows" in names
+
+    out = chat.inspect_rows(["DIBEV_A", "DIBINS_A", "SEX_A"], universe="DIBEV_A == 1", limit=3)
+    assert out.startswith("=")                       # caveat banner first
+    assert "RAW MICRODATA ROWS" in out and "UNWEIGHTED" in out
+    assert out.index("RAW MICRODATA ROWS") < out.index("DIBEV_A")  # caveat precedes data
+    assert "3 row(s) shown" in out                   # capped to the requested limit
+    assert "[DIBINS_A] Currently takes insulin" in out   # OKF summary attached
+    assert "[SEX_A] no OKF summary" in out           # honest, never fabricated
+
+
+def test_inspect_rows_rejects_injection_universe():
+    """The agent-composed universe is allow-listed before it can reach df.eval."""
+    out = chat.inspect_rows(["DIBINS_A"], universe="DIBEV_A == 1 or eval('1')")
+    assert out.startswith("REFUSED")
+    assert "universe" in out.lower()
 
 
 def test_trust_boundary_note_reused_by_row_tool():

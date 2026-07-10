@@ -27,17 +27,11 @@ SAFETY = (
     "individual-level inference. Every figure is survey-weighted and design-based."
 )
 
-# Printed before every `nhis rows` result. Raw rows are the one non-aggregate surface, so
-# the caveat is mandatory and loud: these records are not a population estimate.
-ROWS_CAVEAT = (
-    "=" * 78 + "\n"
-    "RAW MICRODATA ROWS — NOT a population estimate, NOT verified.\n"
-    "These are individual, UNWEIGHTED records from the public-use, de-identified NHIS\n"
-    "file, shown for research inspection only. Without survey weights they do NOT\n"
-    "estimate the U.S. population — do not read a rate or count off of them.\n"
-    "For a weighted, verified figure use `nhis analyze`.\n"
-    + "=" * 78
-)
+# Printed before every `nhis rows` result. The mandatory, loud caveat is the single source
+# of truth in `parquet_query` (reused by the agent's `inspect_rows` tool); raw rows are the
+# one non-aggregate surface, so it always precedes them: these records are not a population
+# estimate.
+ROWS_CAVEAT = parquet_query.ROWS_CAVEAT
 
 # Columns the diabetes slice needs (keeps the 29MB load fast).
 SLICE_COLUMNS = [

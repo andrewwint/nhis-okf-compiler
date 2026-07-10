@@ -198,6 +198,31 @@ def test_groupby_table_surfaces_group_cap_error(df):
     assert "cap" in out
 
 
+# --- OKF column-summary lookup (the agent's grounding for what a column means) -----------
+
+def test_okf_column_summary_for_verified_columns():
+    dibev = chat.okf_column_summary("DIBEV_A")
+    assert "[DIBEV_A]" in dibev
+    assert "Ever told you had diabetes" in dibev        # label from the registry
+    assert "valid codes: 1, 2" in dibev                 # codes
+    assert "universe (skip-pattern)" in dibev           # skip-pattern surfaced
+
+    dibins = chat.okf_column_summary("DIBINS_A")
+    assert "Currently takes insulin" in dibins
+    assert "DIBEV_A == 1" in dibins                      # analytical universe in prose
+
+
+def test_okf_column_summary_is_honest_for_ungrounded_columns():
+    # SEX_A is used only as a grouping column — no verified concept, so no fabricated meaning.
+    sex = chat.okf_column_summary("SEX_A")
+    assert "no OKF summary" in sex
+    assert "SEX_A" in sex
+
+    # A column absent from the bundle entirely also gets the graceful note, never a guess.
+    unknown = chat.okf_column_summary("NOPE_NOT_A_COLUMN")
+    assert "no OKF summary" in unknown
+
+
 # --- Retrieval-only runtime tool mode ----------------------------------------------------
 
 def _tool_names(tools) -> set[str]:
@@ -218,10 +243,14 @@ def test_retrieval_mode_registers_only_search_tool(monkeypatch):
     assert names == {"search_verified_okf"}
 
 
-def test_default_mode_registers_all_three_tools(monkeypatch):
+def test_default_mode_registers_full_local_tool_set(monkeypatch):
     monkeypatch.delenv("NHIS_RUNTIME_TOOLS", raising=False)
     names = _tool_names(chat._as_tools())
-    assert names == {"search_verified_okf", "analyze_subpopulation", "groupby_table"}
+    assert names == {
+        "search_verified_okf", "analyze_subpopulation", "groupby_table", "inspect_rows",
+    }
+    # The row-inspection tool is a DEFAULT-mode-only, local capability.
+    assert "inspect_rows" in names
 
 
 def test_retrieval_only_agent_has_single_tool(monkeypatch):
@@ -264,6 +293,7 @@ def test_building_retrieval_tools_does_not_import_analysis():
         "tools = chat._as_tools()\n"
         "assert 'nhis_okf.analysis' not in sys.modules, 'analysis was imported'\n"
         "assert 'nhis_okf.compiler' not in sys.modules, 'compiler (pandas) was imported'\n"
+        "assert 'nhis_okf.parquet_query' not in sys.modules, 'parquet_query (row tool) imported'\n"
         "print('OK', len(tools))\n"
     )
     res = subprocess.run(

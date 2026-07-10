@@ -31,6 +31,19 @@ HARD_MAX_LIMIT = 500
 # wide/full-width dump. Requesting more than this errors.
 MAX_COLUMNS = 12
 
+# The mandatory, loud caveat that precedes EVERY set of raw rows — from the `nhis rows` CLI
+# and from the local agent's `inspect_rows` tool alike. Raw rows are the one non-aggregate
+# surface, so this is the single source of truth for the "not a population estimate" banner.
+ROWS_CAVEAT = (
+    "=" * 78 + "\n"
+    "RAW MICRODATA ROWS — NOT a population estimate, NOT verified.\n"
+    "These are individual, UNWEIGHTED records from the public-use, de-identified NHIS\n"
+    "file, shown for research inspection only. Without survey weights they do NOT\n"
+    "estimate the U.S. population — do not read a rate or count off of them.\n"
+    "For a weighted, verified figure use `nhis analyze`.\n"
+    + "=" * 78
+)
+
 
 def _expr_columns(expr: str | None) -> list[str]:
     """Identifier-shaped tokens in a universe expression (its referenced columns).

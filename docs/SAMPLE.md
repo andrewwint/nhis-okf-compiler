@@ -3,7 +3,8 @@
 **The chat agent is the only end-user surface.** End users ask questions in natural language;
 they never touch the CLI. The agent runs on **Amazon Bedrock AgentCore** when deployed
 (`agentcore invoke`) and on the same code path locally via `nhis query` (Anthropic API). It
-has **three deterministic tools and no other window onto the data**:
+has **three deterministic aggregate tools** (the deployed agent's complete tool set — its
+only window onto the data):
 
 - `search_verified_okf` — retrieval over the verified OKF bundle (grounded at *compile* time):
   answers from a precomputed concept, cites the concept id, quotes the figure + design-based CI.
@@ -14,9 +15,42 @@ has **three deterministic tools and no other window onto the data**:
   design-based CI per substantive group value) for a "by <group>" question, e.g. insulin use
   by sex: verified variables only, aggregate cells only (never rows), refuses rather than guesses.
 
+When run **locally** (`nhis query`), the agent additionally has a fourth, bounded tool —
+`inspect_rows` — for "show me some rows / what does this column mean." It returns a few RAW,
+UNWEIGHTED public-use records (capped, with the mandatory not-a-population-estimate caveat)
+*paired with each column's verified OKF summary* (label, valid codes, universe). It is
+**default-mode only**: the **deployed** (retrieval-mode) agent never registers it and stays
+aggregate-only + pandas-free. Its agent-supplied universe is allow-list validated (only
+`COLUMN <op> NUMBER` joined by `& | ( )` over known columns) before evaluation. Raw rows are
+for inspection only — a figure is **never** read off them (use the aggregate tools).
+
 The agent states the universe + weight basis with every figure and never invents a number.
 `nhis analyze` / `nhis rows` (further down) are **internal researcher tools**, not the
 end-user surface. Sections 1–4 are real agent responses.
+
+## 0. Row inspection with OKF column summaries (local `nhis query`)
+
+```
+$ nhis query "show me a few rows of insulin use among diabetics and what those columns mean"
+```
+> Tool #1: **inspect_rows**
+>
+> Here are **10 raw, unweighted public-use NHIS microdata rows** filtered to adults ever told
+> they had diabetes (`DIBEV_A == 1`):
+>
+> ⚠️ **These are individual, unweighted records — they are NOT population estimates.** Do not
+> read any rate or count off of them. For a weighted figure, use a weighted analysis tool.
+>
+> **What the columns mean (from the verified OKF bundle):**
+> - **DIBEV_A** — *Ever told you had diabetes* (valid codes 1, 2; 1 = Yes; asked of all sample adults)
+> - **DIBINS_A** — *Currently takes insulin* (valid codes 1, 2; 1 = Yes; asked of `DIBEV_A == 1`
+>   **or** `PREDIB_A == 1` — the clinically meaningful denominator is the narrower `DIBEV_A == 1`)
+>
+> Would you like a **survey-weighted figure** — e.g., the percentage of diagnosed diabetics
+> currently using insulin, overall or by sex? Just ask!
+
+The agent returns the caveated rows, explains the columns straight from OKF's verified
+summaries, and steers any *number* back to the weighted aggregate tools.
 
 ## 1. A verified figure
 
