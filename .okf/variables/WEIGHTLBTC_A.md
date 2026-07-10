@@ -4,7 +4,7 @@ title: "Weight without shoes (pounds, top-coded)"
 description: "Weighted mean weight of U.S. adults, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, WEIGHTLBTC_A, mean]
-timestamp: "2026-07-09T23:59:37Z"
+timestamp: "2026-07-10T00:16:06Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: WEIGHTLBTC_A
 variable: WEIGHTLBTC_A
@@ -22,7 +22,7 @@ verification:
   claimed_pct: 178.53
   delta_pp: 0.0
   detail: "178.53 (95% CI 177.89-179.17; design-based SE 0.33)"
-  verified_at: 2026-07-09T23:59:37Z
+  verified_at: 2026-07-10T00:16:06Z
 ---
 
 # Weight without shoes (pounds, top-coded)
@@ -43,6 +43,20 @@ number in a way execution catches. Related body measure: [HEIGHTTC_A](./HEIGHTTC
 
 - Basis: 178.53 (95% CI 177.89-179.17; design-based SE 0.33)
 - Verification: executed against NHIS 2023 Sample Adult public-use file (adult23.csv); verdict **PASS**.
+
+## Reproduce
+
+Weighted, verified figure (aggregate only — the number to cite):
+
+```bash
+nhis analyze --variable WEIGHTLBTC_A --stat mean
+```
+
+Raw row inspection (unweighted, not verified — for sanity-checking only; see the [tool reference](../references/parquet_query.md)):
+
+```bash
+nhis rows --columns "WEIGHTLBTC_A" --limit 10
+```
 
 ## Related
 - [HEIGHTTC_A](./HEIGHTTC_A.md)

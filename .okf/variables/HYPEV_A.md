@@ -4,7 +4,7 @@ title: "Ever told you had high blood pressure"
 description: "Weighted prevalence of diagnosed hypertension among U.S. adults, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, HYPEV_A, prevalence]
-timestamp: "2026-07-09T23:59:37Z"
+timestamp: "2026-07-10T00:16:06Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: HYPEV_A
 variable: HYPEV_A
@@ -24,7 +24,7 @@ verification:
   se_pp: 0.35
   deff: 1.64
   variance_method: taylor-linearization (design-based)
-  verified_at: 2026-07-09T23:59:37Z
+  verified_at: 2026-07-10T00:16:06Z
 ---
 
 # Ever told you had high blood pressure
@@ -41,6 +41,20 @@ estimate the U.S. adult population.
 - 95% CI: [31.57, 32.94] (design-based, Taylor linearization; SE 0.35pp; DEFF 1.64)
 - Basis: 32.26% (95% CI 31.57-32.94; design-based SE 0.35pp, DEFF 1.64)
 - Verification: executed against NHIS 2023 Sample Adult public-use file (adult23.csv); verdict **PASS**.
+
+## Reproduce
+
+Weighted, verified figure (aggregate only — the number to cite):
+
+```bash
+nhis analyze --variable HYPEV_A
+```
+
+Raw row inspection (unweighted, not verified — for sanity-checking only; see the [tool reference](../references/parquet_query.md)):
+
+```bash
+nhis rows --columns "HYPEV_A" --limit 10
+```
 
 ## Related
 - [HYPMED_A](./HYPMED_A.md)

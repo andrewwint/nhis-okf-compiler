@@ -31,6 +31,9 @@ from .verify import VerifyResult, verify_all, PASS, FAIL, DESCRIPTIVE
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OKF_DIR = REPO_ROOT / ".okf"
 VARIABLES_DIR = OKF_DIR / "variables"
+REFERENCES_DIR = OKF_DIR / "references"
+# Hand-authored Reference concepts (part of the audit trail) copied into the bundle verbatim.
+REFERENCE_SOURCES = REPO_ROOT / "concepts" / "references"
 LOG_PATH = OKF_DIR / "log.md"
 SOURCE = "NHIS 2023 Sample Adult public-use file (adult23.csv)"
 RESOURCE = "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
@@ -141,6 +144,52 @@ def _frontmatter(concept: Concept, r: VerifyResult, ts: str) -> str:
     return "\n".join(lines)
 
 
+def _reproduce_block(concept: Concept) -> list[str]:
+    """The exact `nhis analyze` (weighted, verified) and `nhis rows` (raw inspection)
+    invocations that reproduce an analytical concept's figure, over its analytical universe.
+
+    Both modes are deterministic: `nhis analyze` re-derives the cited survey-weighted
+    aggregate; `nhis rows` shows a few of the underlying records for a sanity check. See the
+    [tool reference](../references/parquet_query.md) for the two-mode retrieval model.
+    """
+    var = registry.get(concept.variable)
+    universe = concept.analytical_universe or var.universe_expr
+
+    analyze = f"nhis analyze --variable {concept.variable}"
+    if universe:
+        analyze += f' --universe "{universe}"'
+    if concept.kind != "prevalence":
+        analyze += f" --stat {concept.kind}"
+        if concept.kind == "quantile" and concept.quantile_q is not None:
+            analyze += f" --q {concept.quantile_q:g}"
+
+    # A few columns for row inspection: the variable plus whatever the universe references.
+    cols = [t for t in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", universe or "")]
+    cols = list(dict.fromkeys([*cols, concept.variable]))
+    rows = f'nhis rows --columns "{",".join(cols)}"'
+    if universe:
+        rows += f' --universe "{universe}"'
+    rows += " --limit 10"
+
+    return [
+        "## Reproduce",
+        "",
+        "Weighted, verified figure (aggregate only — the number to cite):",
+        "",
+        "```bash",
+        analyze,
+        "```",
+        "",
+        "Raw row inspection (unweighted, not verified — for sanity-checking only; see the "
+        "[tool reference](../references/parquet_query.md)):",
+        "",
+        "```bash",
+        rows,
+        "```",
+        "",
+    ]
+
+
 def _body(concept: Concept, r: VerifyResult) -> str:
     parts = [f"# {concept.label}", "", _wikilinks_to_markdown(concept.prose), ""]
     if concept.is_analytical:
@@ -165,6 +214,7 @@ def _body(concept: Concept, r: VerifyResult) -> str:
             f"- Verification: executed against {SOURCE}; verdict **{r.verdict}**.",
             "",
         ]
+        parts += _reproduce_block(concept)
     if concept.links:
         parts.append("## Related")
         parts += [f"- [{l}](./{l}.md)" for l in concept.links]
@@ -307,6 +357,21 @@ def _write_log(
     log_path.write_text("\n".join(lines))
 
 
+def _emit_references(bundle_root: Path, source_dir: Path = REFERENCE_SOURCES) -> list[str]:
+    """Copy hand-authored Reference concepts into `<bundle>/references/` verbatim."""
+    if not source_dir.exists():
+        return []
+    refs_dir = bundle_root / "references"
+    refs_dir.mkdir(parents=True, exist_ok=True)
+    for old in refs_dir.glob("*.md"):  # start clean, mirroring the source dir
+        old.unlink()
+    written = []
+    for src in sorted(source_dir.glob("*.md")):
+        (refs_dir / src.name).write_text(src.read_text())
+        written.append(f"references/{src.stem}")
+    return written
+
+
 def compile_bundle(
     df: pd.DataFrame,
     concept_list: list[Concept] | None = None,
@@ -353,6 +418,11 @@ def compile_bundle(
                 _render_trend(t_by_id[r.concept_id], r, ts)
             )
             trend_written.append(r.concept_id)
+
+    # Reference concepts (hand-authored tool docs) are copied verbatim into the bundle so a
+    # reader/agent is mapped to the researcher row tool. They are part of the audit trail
+    # (versioned under concepts/references/) and normal OKF concept docs, not reserved files.
+    _emit_references(bundle_root)
 
     (bundle_root / "index.md").write_text(
         _render_index(written_concepts, ts, trend_ids=trend_written)
