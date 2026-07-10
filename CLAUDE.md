@@ -22,16 +22,17 @@ retrieval, chat, cli); concepts in `concepts/*.yaml`; the verified bundle in
 `.claude/skills/data-science/`. The next phase is planned in
 `openspec/changes/build-end-to-end-nhis-okf/`.
 
-**One agent, one deploy project.** The AgentCore runtime runs the real
-`src/nhis_okf/agentcore_app.py` (never a reimplementation) over the committed `.okf/`
-bundle. The deploy is a single AgentCore CLI project at the repo root: `agentcore/`
-(config: `agentcore.json`, `aws-targets.json`) + `app/nhis_okf_chat/` (a thin `main.py`
-re-exporting the agent + a `pyproject.toml` that installs `nhis_okf` as a dependency). Deploy
-with the `agentcore` CLI (`agentcore deploy`/`invoke`); demo is CLI-only (no web front). Do
-not reintroduce a parallel agent or a committed duplicate bundle. The runtime packages
-retrieval-only (pandas is an optional `[compute]` extra, kept out of the CodeZip); porting
-query-time compute into the runtime for live tables needs a **container** build — the CodeZip
-limit is 250 MB compressed / 750 MB uncompressed.
+**This repo is the LAB; the clean deployable version is the sibling `../nhisokfchat`.**
+Development, tests, and OpenSpec change history live here. The article-facing, self-contained
+AgentCore deploy is a separate repo (`../nhisokfchat`): a thin `app/nhisokfchat/main.py`
+re-exports the real `src/nhis_okf/agentcore_app.py`, with the engine (`nhis_okf/`) + verified
+bundle (`nhis_okf/okf_bundle/`) shipped beside it. It packages **retrieval-only** (no pandas)
+as a CodeZip (~93 MB, under the 250 MB limit) — the lead: a verified OKF bundle deployed with
+**no vector DB**. Proven live on Bedrock AgentCore (the verified 31.96% [DIBINS_A] + a clean
+grounded-or-refuse, then torn down). Do not reintroduce a parallel agent or a committed
+duplicate bundle in this repo. Live query-time compute in the deployed agent would go through
+the AgentCore **Code Interpreter** (pandas/duckdb pre-installed) running the deterministic
+`analysis`/`groupby_table` code — not a container, not pandas in the runtime CodeZip.
 
 The authoritative plan is `docs/PRODUCT.md`. Read it before substantive work; the sections
 below summarize what constrains implementation.
