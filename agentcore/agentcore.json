@@ -11,7 +11,7 @@
       "name": "nhis_okf_chat",
       "build": "CodeZip",
       "entrypoint": "main.py",
-      "codeLocation": "app/nhis_okf_chat",
+      "codeLocation": "app",
       "runtimeVersion": "PYTHON_3_12",
       "networkMode": "PUBLIC",
       "protocol": "HTTP"
