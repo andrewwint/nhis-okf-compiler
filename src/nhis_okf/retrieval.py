@@ -83,3 +83,17 @@ class Retriever:
     @classmethod
     def from_bundle(cls, variables_dir: Path = VARIABLES_DIR) -> "Retriever":
         return cls(load_bundle(variables_dir))
+
+
+def verified_variables(variables_dir: Path = VARIABLES_DIR) -> set[str]:
+    """Variables backed by a verified concept in the compiled bundle.
+
+    The compiler only writes concepts that passed execution-grounded verification, so a
+    concept file's presence is proof of grounding. This is the shared allow-list for both
+    the `nhis analyze` CLI and the agent's `analyze_subpopulation` tool.
+    """
+    return {
+        c.frontmatter["variable"]
+        for c in load_bundle(variables_dir)
+        if c.frontmatter.get("variable")
+    }

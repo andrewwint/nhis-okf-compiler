@@ -1,9 +1,19 @@
-# Sample queries — the deployed grounded agent
+# Sample queries — the grounded chat agent (the end-user surface)
 
-Real responses from the agent deployed on **Amazon Bedrock AgentCore** (`agentcore invoke`),
-Claude Sonnet 4.5 over the verified OKF bundle. The agent answers **only** from verified
-concepts: it cites the concept id, quotes the survey-weighted figure and its design-based
-95% CI, refuses when the bundle has no answer, and never invents a number.
+**The chat agent is the only end-user surface.** End users ask questions in natural language;
+they never touch the CLI. The agent runs on **Amazon Bedrock AgentCore** when deployed
+(`agentcore invoke`) and on the same code path locally via `nhis query` (Anthropic API). It
+has **two deterministic tools and no other window onto the data**:
+
+- `search_verified_okf` — retrieval over the verified OKF bundle (grounded at *compile* time):
+  answers from a precomputed concept, cites the concept id, quotes the figure + design-based CI.
+- `analyze_subpopulation` — a deterministic, survey-weighted computation with a design-based
+  CI for an *ad-hoc subgroup* a concept does not already carry (grounded at *query* time):
+  verified variables only, aggregate-only, and it refuses rather than guesses.
+
+The agent states the universe + weight basis with every figure and never invents a number.
+`nhis analyze` / `nhis rows` (further down) are **internal researcher tools**, not the
+end-user surface. Sections 1–4 are real agent responses.
 
 ## 1. A verified figure
 
@@ -31,6 +41,33 @@ $ agentcore invoke '{"question": "how does survey weighting change diabetes prev
 > cannot provide the specific difference between weighted and unweighted prevalence from the
 > verified bundle, as those comparative figures are not returned by the search.
 
+## 4. An ad-hoc subgroup — answered at query time (the second tool)
+
+No concept pre-computes insulin use *among women specifically*, so the agent calls
+`analyze_subpopulation`, which runs the same deterministic, weights-mandatory computation the
+verifier uses — restricted to the verified `DIBINS_A` — and reports the aggregate + CI. Real
+output from `./.venv/bin/nhis query "…"` (the deployed agent runs the identical code path):
+
+```
+$ nhis query "Among adults diagnosed with diabetes, what share of women take insulin?"
+```
+> Among all U.S. adults diagnosed with diabetes, about **32.0%** currently take insulin
+> **[DIBINS_A]**. Among **women specifically**, the share is essentially the same at **31.9%**
+> (95% CI: 29.2%–34.6%), based on a survey-weighted denominator of approximately 12.6 million
+> women with diagnosed diabetes (unweighted n = 1,712).
+
+The 31.88% women's figure is not an LLM guess — it is `analyze_subpopulation` computing over
+`DIBEV_A == 1 & SEX_A == 2`, weighted by `WTFA_A`, with a design-based CI. Asked for
+an **unverified** variable, the same tool refuses:
+
+```
+$ nhis query "What is the survey-weighted prevalence of current smoking among adults over 40?"
+```
+> I'm unable to answer this from the verified data bundle. The subpopulation analysis was
+> refused because the smoking variable is **not among the verified variables** in the compiled
+> bundle (verified: DIBAGETC_A, DIBEV_A, DIBINS_A, DIBPILL_A, HEIGHTTC_A, HYPEV_A, HYPMED_A,
+> PREDIB_A, WEIGHTLBTC_A). I cannot invent, estimate, or guess a figure.
+
 ## Why this matters
 
 Asked the same weighting question, a frontier chat model with no grounding confidently
@@ -45,14 +82,17 @@ refuse than fabricate.
 
 ---
 
-# Sample queries — `nhis analyze` (ad-hoc subpopulation lookups)
+# Internal / researcher tool — `nhis analyze` (ad-hoc subpopulation lookups)
 
-Beyond the pre-authored concepts, `nhis analyze` runs **ad-hoc survey-weighted lookups over
-a subpopulation** you define. You filter across rows with an arbitrary universe expression
-(the *means*); the command returns only a **weighted aggregate with its design-based 95%
-CI** (the *output*). It never emits individual records — the aggregate-only safety scope,
-enforced in code — and it is **grounded-or-refuse**: it answers only for a variable backed
-by a verified concept in the compiled bundle.
+`nhis analyze` is an **internal researcher CLI, not the end-user surface** — it is the same
+deterministic engine the chat's `analyze_subpopulation` tool wraps (section 4), exposed on the
+command line for direct inspection. You filter across rows with an arbitrary universe
+expression (the *means*); the command returns only a **weighted aggregate with its
+design-based 95% CI** (the *output*). It never emits individual records — the aggregate-only
+safety scope, enforced in code — and it is **grounded-or-refuse**: it answers only for a
+variable backed by a verified concept in the compiled bundle. (`nhis rows`, further, is the
+one raw-row researcher tool — also internal, loudly caveated, and never reachable from the
+chat agent.)
 
 ```bash
 nhis analyze --variable <VAR> --universe "<pandas expr>" --stat prevalence|mean|quantile [--q 0.5]
@@ -129,7 +169,7 @@ A variable with no verified concept is refused, and the message lists what is av
 $ nhis analyze --variable AGE_A --universe "DIBEV_A == 1" --stat mean
 refused: 'AGE_A' is not backed by a verified concept in the compiled bundle. Run
   `nhis compile` first, or choose one of: DIBAGETC_A, DIBEV_A, DIBINS_A, DIBPILL_A,
-  HYPEV_A, HYPMED_A, PREDIB_A.
+  HEIGHTTC_A, HYPEV_A, HYPMED_A, PREDIB_A, WEIGHTLBTC_A.
 ```
 
 An empty subpopulation refuses rather than reporting a confidently-wrong `0.0`:

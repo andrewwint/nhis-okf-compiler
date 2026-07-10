@@ -22,11 +22,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from . import config
-from .retrieval import Retriever, Hit
+from . import analysis, config
+from .retrieval import Retriever, Hit, verified_variables
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SAFETY = (
@@ -45,19 +46,33 @@ MAX_OUTPUT_TOKENS = 600
 MAX_QUESTION_CHARS = 600
 
 OKF_ANALYST_PROMPT = """\
-You answer questions about U.S. health survey statistics using ONLY the verified NHIS
-concepts returned by the search_verified_okf tool.
+You answer questions about U.S. health survey statistics using ONLY the two verified,
+deterministic tools below. Never use outside knowledge for a figure.
+
+Your two tools:
+- search_verified_okf(query): retrieval over the verified OKF bundle. Use it for a
+  precomputed concept the bundle already carries (e.g. insulin use among diagnosed
+  adults). Quote the exact survey-weighted percentage and cite the concept id in brackets,
+  e.g. [DIBINS_A].
+- analyze_subpopulation(variable, universe, stat, q): a deterministic, survey-weighted
+  computation with a design-based confidence interval. Use it for an ad-hoc weighted
+  SUBGROUP a concept does not already carry (e.g. a figure restricted to women, or a mean
+  age at diagnosis for a subset). `variable` must be a verified variable; `universe` is a
+  pandas row filter over the microdata, e.g. "DIBEV_A == 1 & SEX_A == 2". `stat` is one of
+  prevalence | mean | quantile. It returns only an aggregate estimate and its CI.
 
 Hard rules:
-- Always call search_verified_okf first. Use ONLY the figures it returns. Quote the exact
-  survey-weighted percentage and cite the concept id in brackets, e.g. [DIBINS_A].
-- If the tool returns nothing relevant, say you cannot answer from the verified bundle. Do
-  NOT invent or estimate a number, and do not use outside knowledge for figures.
+- Prefer search_verified_okf when a precomputed concept answers the question; use
+  analyze_subpopulation for an ad-hoc weighted subgroup. Use ONLY the numbers the tools
+  return.
+- If a tool returns nothing relevant or a REFUSED message, say you cannot answer that from
+  the verified bundle. Do NOT invent, estimate, or guess a number.
+- ALWAYS state the survey-weighted basis (the universe/denominator and that it is
+  weighted) with any figure, and report the confidence interval when the tool gives one.
 - These are public, aggregate survey estimates. This is not medical advice; make no
   individual-level inference and give no clinical recommendation. You only ever see
   verified aggregates — you cannot access or return individual survey records.
-- Be concise and factual. State the survey-weighted basis (the denominator/universe) with
-  any figure.
+- Be concise and factual.
 """
 
 
@@ -114,11 +129,54 @@ def search_verified_okf(query: str) -> str:
     return _format_hits(hits)
 
 
-def _as_tool():
-    """Wrap search_verified_okf as a Strands tool (imported lazily)."""
+@lru_cache(maxsize=1)
+def _microdata():
+    """The NHIS microdata, loaded once per process for the query-time tool.
+
+    Full table (all columns) so an ad-hoc universe may reference any verified variable and
+    the registry's weight/design columns. Prefers the parquet twin, so this is cheap.
+    """
+    return analysis.load_microdata()
+
+
+def analyze_subpopulation(
+    variable: str, universe: str, stat: str = "prevalence", q: float = 0.5
+) -> str:
+    """Compute a survey-weighted aggregate + design-based CI for an ad-hoc subpopulation of
+    a VERIFIED NHIS variable.
+
+    Use this for a weighted subgroup figure a precomputed concept does not already carry.
+    `variable` must be a verified variable; `universe` is a pandas row filter over the
+    microdata (e.g. "DIBEV_A == 1 & SEX_A == 2"); `stat` is prevalence | mean | quantile;
+    `q` is the quantile probability when stat is quantile. Returns only an aggregate
+    estimate and its confidence interval — never individual rows. Returns a message
+    beginning with REFUSED for an unverified variable or an empty/undefined subpopulation.
+    """
+    allowed = verified_variables()
+    if variable not in allowed:
+        return (
+            f"REFUSED: {variable!r} is not backed by a verified concept in the compiled "
+            f"bundle, so no grounded figure can be computed. Verified variables: "
+            f"{', '.join(sorted(allowed)) or '(none compiled)'}."
+        )
+    try:
+        res = analysis.subpopulation_stat(
+            _microdata(), variable, universe_expr=universe, stat=stat, q=q
+        )
+    except Exception as exc:
+        return f"REFUSED: could not compute a grounded figure — {exc}."
+    return res.summary()
+
+
+def _as_tools():
+    """Wrap the agent's two deterministic tools as Strands tools (imported lazily).
+
+    Both are grounded: retrieval over the verified bundle, and a deterministic weighted
+    subpopulation computation restricted to verified variables. Neither can reach raw rows.
+    """
     from strands import tool
 
-    return tool(search_verified_okf)
+    return [tool(search_verified_okf), tool(analyze_subpopulation)]
 
 
 def build_chat_agent(model: Any | None = None):
@@ -147,7 +205,7 @@ def build_chat_agent(model: Any | None = None):
                 max_tokens=MAX_OUTPUT_TOKENS,
             )
 
-    return Agent(model=model, system_prompt=OKF_ANALYST_PROMPT, tools=[_as_tool()])
+    return Agent(model=model, system_prompt=OKF_ANALYST_PROMPT, tools=_as_tools())
 
 
 # --- Public entry: extractive by default, generative when a model is available ----------
