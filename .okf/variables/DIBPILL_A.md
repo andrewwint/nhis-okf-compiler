@@ -4,7 +4,7 @@ title: "Takes diabetic pills (among adults with diagnosed diabetes)"
 description: "DIBPILL_A records whether an adult currently takes diabetic pills (oral medication)."
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, DIBPILL_A]
-timestamp: "2026-07-09T23:24:49Z"
+timestamp: "2026-07-09T23:59:37Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: DIBPILL_A
 variable: DIBPILL_A
@@ -15,7 +15,7 @@ source: "NHIS 2023 Sample Adult public-use file (adult23.csv)"
 verification:
   verdict: DESCRIPTIVE
   method: execution-grounded
-  verified_at: 2026-07-09T23:24:49Z
+  verified_at: 2026-07-09T23:59:37Z
 ---
 
 # Takes diabetic pills (among adults with diagnosed diabetes)

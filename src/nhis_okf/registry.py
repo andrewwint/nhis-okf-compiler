@@ -155,6 +155,31 @@ REGISTRY: dict[str, Variable] = {
         ),
         related=("HYPEV_A",),
     ),
+    # --- Body measures (whole-sample continuous; same weighted-mean engine) ---------
+    # Confirmed empirically against adult23.csv: both are asked of ALL sample adults
+    # (n=29,522, no skip-pattern), so universe is None. Weight is WTFA_A. The top-codes
+    # (996-999 lbs / 96-99 in) are non-substantive and must be dropped before any mean.
+    "WEIGHTLBTC_A": Variable(
+        name="WEIGHTLBTC_A",
+        label="Weight without shoes (pounds, top-coded)",
+        universe_expr=None,  # asked of all sample adults
+        universe_text="All sample adults.",
+        # Substantive weights are 100-299 (299 = top-code). 996-999 are non-substantive
+        # (996 = not on file / not ascertained, 997 refused, 999 don't know).
+        valid_codes=tuple(range(100, 300)),
+        notes="Top-coded at 299 lbs. Codes 996-999 are non-substantive and must be dropped.",
+        related=("HEIGHTTC_A", "BMICAT_A"),
+    ),
+    "HEIGHTTC_A": Variable(
+        name="HEIGHTTC_A",
+        label="Height without shoes (inches, top-coded)",
+        universe_expr=None,  # asked of all sample adults
+        universe_text="All sample adults.",
+        # Substantive heights are 59-76 in. 96-99 are non-substantive.
+        valid_codes=tuple(range(59, 77)),
+        notes="Codes 96-99 are non-substantive and must be dropped.",
+        related=("WEIGHTLBTC_A", "BMICAT_A"),
+    ),
 }
 
 
@@ -173,17 +198,32 @@ def get(name: str) -> Variable:
 # other year. This map is the ground truth the trend verifier uses to resolve each year
 # correctly — and to detect a naive single-name join.
 #
-# canonical -> {year: (variable, weight, valid_codes, affirmative_codes)}
+# canonical -> {year: (variable, weight, valid_codes, affirmative_codes, encoding)}
+#
+# `encoding` describes each year's substantive value domain — "categorical" (a small set of
+# codes, e.g. 1/2/3) or "continuous" (a wide numeric range) — so the trend verifier can
+# refuse a join across incompatible encodings. It is a hint; the guard confirms the domain
+# empirically against the real data rather than trusting this label.
 #
 # Borderline/prediabetes handling: 2018 DIBEV1 carries borderline as code 3 *within* the
 # variable; 2023 splits prediabetes into a separate item (PREDIB_A) and DIBEV_A is 1/2. For
 # a comparable "diagnosed diabetes" denominator, 2018 counts borderline (3) as not-diagnosed
 # (denominator 1/2/3, numerator 1), matching how 2023 treats prediabetics as DIBEV_A == 2.
-CROSS_YEAR: dict[str, dict[int, tuple[str, str, tuple[int, ...], tuple[int, ...]]]] = {
+CROSS_YEAR: dict[
+    str, dict[int, tuple[str, str, tuple[int, ...], tuple[int, ...], str]]
+] = {
     "diabetes_ever": {
-        2018: ("DIBEV1", "WTFA_SA", (1, 2, 3), (1,)),
-        2023: ("DIBEV_A", "WTFA_A", (1, 2), (1,)),
-    }
+        2018: ("DIBEV1", "WTFA_SA", (1, 2, 3), (1,), "categorical"),
+        2023: ("DIBEV_A", "WTFA_A", (1, 2), (1,), "categorical"),
+    },
+    # The 2019 redesign silently RECODED body-mass index: 2018 BMI is a continuous value
+    # stored x100 (integer 2814 = BMI 28.1; substantive band ~1000-9998, 9999 reserved),
+    # while 2023 BMICAT_A is a 1-4 category. Nothing is absent, so the rename-gap check
+    # passes — but the encodings are incompatible and no mean-BMI trend is comparable.
+    "bmi": {
+        2018: ("BMI", "WTFA_SA", tuple(range(1000, 9999)), (), "continuous"),
+        2023: ("BMICAT_A", "WTFA_A", (1, 2, 3, 4), (), "categorical"),
+    },
 }
 
 # Per-year Sample Adult public-use CSV filenames (under data/).

@@ -4,7 +4,7 @@ title: "Takes blood-pressure medication (among adults with hypertension)"
 description: "Weighted % currently taking blood-pressure medication among U.S. adults with diagnosed hypertension, 2023"
 resource: "https://www.cdc.gov/nchs/nhis/2023nhis.htm"
 tags: [nhis-2023, diabetes, HYPMED_A, prevalence]
-timestamp: "2026-07-09T23:24:49Z"
+timestamp: "2026-07-09T23:59:37Z"
 # extension keys (OKF consumers tolerate unknown fields)
 id: HYPMED_A
 variable: HYPMED_A
@@ -25,7 +25,7 @@ verification:
   se_pp: 0.50
   deff: 1.74
   variance_method: taylor-linearization (design-based)
-  verified_at: 2026-07-09T23:24:49Z
+  verified_at: 2026-07-09T23:59:37Z
 ---
 
 # Takes blood-pressure medication (among adults with hypertension)
