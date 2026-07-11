@@ -1,10 +1,9 @@
 # Sample queries — the grounded chat agent (the end-user surface)
 
 **The chat agent is the only end-user surface.** End users ask questions in natural language;
-they never touch the CLI. The agent runs on **Amazon Bedrock AgentCore** when deployed
-(`agentcore invoke`) and on the same code path locally via `nhis query` (Anthropic API). It
-has **three deterministic aggregate tools** (the deployed agent's complete tool set — its
-only window onto the data):
+they never touch the CLI. This is the **lab's grounded agent** — run it locally via `nhis query`
+(Anthropic API), or on **Amazon Bedrock AgentCore** (`agentcore invoke`). It has **three
+deterministic aggregate tools** — its only window onto the data:
 
 - `search_verified_okf` — retrieval over the verified OKF bundle (grounded at *compile* time):
   answers from a precomputed concept, cites the concept id, quotes the figure + design-based CI.
@@ -19,14 +18,18 @@ When run **locally** (`nhis query`), the agent additionally has a fourth, bounde
 `inspect_rows` — for "show me some rows / what does this column mean." It returns a few RAW,
 UNWEIGHTED public-use records (capped, with the mandatory not-a-population-estimate caveat)
 *paired with each column's verified OKF summary* (label, valid codes, universe). It is
-**default-mode only**: the **deployed** (retrieval-mode) agent never registers it and stays
-aggregate-only + pandas-free. Its agent-supplied universe is allow-list validated (only
-`COLUMN <op> NUMBER` joined by `& | ( )` over known columns) before evaluation. Raw rows are
-for inspection only — a figure is **never** read off them (use the aggregate tools).
+**default-mode only** — a deployed agent never registers it and stays aggregate-only. Its
+agent-supplied universe is allow-list validated (only `COLUMN <op> NUMBER` joined by
+`& | ( )` over known columns) before evaluation. Raw rows are for inspection only — a figure
+is **never** read off them (use the aggregate tools).
 
 The agent states the universe + weight basis with every figure and never invents a number.
 `nhis analyze` / `nhis rows` (further down) are **internal researcher tools**, not the
 end-user surface. Sections 1–4 are real agent responses.
+
+> **The deployed demo is a curated subset.** The article-facing deploy (`../nhisokfchat`) ships
+> a **two-tool** agent — `tool_search_okf` + `tool_analyze_rows`, over 4 diabetes concepts — and
+> has its own SAMPLE.md. This file documents the **lab** agent's fuller tool set.
 
 ## 0. Row inspection with OKF column summaries (local `nhis query`)
 
@@ -55,7 +58,7 @@ summaries, and steers any *number* back to the weighted aggregate tools.
 ## 1. A verified figure
 
 ```
-$ agentcore invoke --prompt "What share of U.S. adults with diagnosed diabetes take insulin?"
+$ agentcore invoke '{"question": "What share of U.S. adults with diagnosed diabetes take insulin?"}'
 ```
 > Based on the verified OKF bundle, here is the finding:
 >
@@ -72,7 +75,7 @@ The not-medical-advice / aggregate-only safety framing is appended to every answ
 ## 2. Refusal — no concept in the bundle
 
 ```
-$ agentcore invoke --prompt "What is the prevalence of asthma among US adults?"
+$ agentcore invoke '{"question": "What is the prevalence of asthma among U.S. adults?"}'
 ```
 > Unfortunately, **I cannot answer this question from the verified bundle.** The verified OKF
 > bundle does not contain a precomputed asthma prevalence concept for U.S. adults, and none of
